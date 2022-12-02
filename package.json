@@ -18,13 +18,13 @@
     "@typescript-eslint/eslint-plugin": "^5.42.0",
     "@typescript-eslint/parser": "^5.42.0",
     "eslint": "^8.26.0",
+    "puppeteer": "^19.3.0",
     "typescript": "^4.8.4"
   },
   "dependencies": {
     "csv": "^6.2.1",
     "lodash.chunk": "^4.2.0",
     "node-fetch": "^2.6.7",
-    "puppeteer": "^19.2.2",
     "rimraf": "^3.0.2",
     "source-map-support": "^0.5.21"
   }

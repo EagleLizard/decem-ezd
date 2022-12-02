@@ -3,7 +3,7 @@ import { writeFile } from 'fs/promises';
 import path from 'path';
 import os from 'os';
 
-import puppeteer from 'puppeteer';
+import * as puppeteer from 'puppeteer';
 
 import { DATA_DIR_PATH, SCRAPED_EBOOKS_DIR_PATH, SCRAPED_EBOOKS_FILE_NAME, SCRAPED_EBOOKS_NOT_FOUND_FILE_NAME } from '../../constants';
 import { getIntuitiveTimeString } from '../../util/print-util';
