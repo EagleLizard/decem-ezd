@@ -1,0 +1,31 @@
+{
+  "name": "novem-ezd",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "clean-books": "rimraf ./data/txt-ebooks"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/lodash.chunk": "^4.2.7",
+    "@types/node": "^18.11.9",
+    "@types/node-fetch": "^2.6.2",
+    "@types/rimraf": "^3.0.2",
+    "@types/source-map-support": "^0.5.6",
+    "@typescript-eslint/eslint-plugin": "^5.42.0",
+    "@typescript-eslint/parser": "^5.42.0",
+    "eslint": "^8.26.0",
+    "typescript": "^4.8.4"
+  },
+  "dependencies": {
+    "csv": "^6.2.1",
+    "lodash.chunk": "^4.2.0",
+    "node-fetch": "^2.6.7",
+    "puppeteer": "^19.2.2",
+    "rimraf": "^3.0.2",
+    "source-map-support": "^0.5.21"
+  }
+}
