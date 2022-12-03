@@ -10,6 +10,7 @@ import { getIntuitiveTimeString } from '../../util/print-util';
 import { Timer } from '../../util/timer';
 import { sleep } from '../../util/sleep';
 import { mkdirIfNotExistRecursive } from '../../util/files';
+import { getCurrentDateString } from '../../util/date-time';
 
 const NUM_CPUS = os.cpus().length;
 // const MAX_CONCURRENT_PAGES = 1;
@@ -217,18 +218,6 @@ async function getPlaintextLink(browser: puppeteer.Browser, bookLink: string): P
     plaintextUrl: plainTextLink,
     pageUrl: bookLink,
   };
-}
-
-function getCurrentDateString(): string {
-  let today: Date;
-  let month: number, day: number, year: number;
-  let dateString: string;
-  today = new Date();
-  month = today.getMonth() + 1;
-  day = today.getDate();
-  year = today.getFullYear();
-  dateString = `${year}-${month}-${day}`;
-  return dateString;
 }
 
 function shouldInterceptPageRequest(resourceType: puppeteer.ResourceType): boolean {

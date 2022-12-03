@@ -1,11 +1,10 @@
 
-import { EBOOKS_DATA_DIR_PATH } from '../../constants';
-import { checkFile, mkdirIfNotExistRecursive } from '../../util/files';
+import { createReadStream, ReadStream } from 'fs';
+import * as readline from 'readline';
+import { isPromise } from 'util/types';
+
 import { gutenbergScrapeMain } from '../gutenberg-scrape/gutenberg-scrape';
-import { zipShuffle } from '../../util/shuffle';
-import { downloadBooks, ScrapedBookWithFile, MAX_CONCURRENT_DOWNLOADS, MAX_TOTAL_SOCKETS, DownloadBooksResult } from './books/books-service';
-import { getIntuitiveTimeString } from '../../util/print-util';
-import { loadScrapedBooksMeta } from './books/book-meta-service';
+import { fetchBooks } from './books/fetch-books';
 
 enum TXT2_ARGS {
   SCRAPE = 'SCRAPE',
@@ -17,6 +16,8 @@ const TXT2_ARG_MAP: Record<TXT2_ARGS, string> = {
   [TXT2_ARGS.PARSE]: 'parse',
 };
 
+const ALT_HIGH_WATERMARK = 16 * 1024;
+
 export async function txt2Main(argv: string[]) {
   let cliArgs: string[], cmdArg: string;
   cliArgs = argv.slice(2);
@@ -26,50 +27,84 @@ export async function txt2Main(argv: string[]) {
       await gutenbergScrapeMain();
       break;
     case TXT2_ARG_MAP.PARSE:
-      console.log('parse ~');
+      await parseBooksMain();
       break;
     default:
-      await initBooks();
+      await fetchBooks();
   }
 }
 
-async function initBooks() {
-  let scrapedBooks: ScrapedBookWithFile[];
-  let scrapedBooksToDownload: ScrapedBookWithFile[];
-  let downloadBooksResult: DownloadBooksResult;
-  console.log(`MAX_CONCURRENT_DOWNLOADS: ${MAX_CONCURRENT_DOWNLOADS}`);
-  console.log(`MAX_TOTAL_SOCKETS: ${MAX_TOTAL_SOCKETS}`);
-  await mkdirIfNotExistRecursive(EBOOKS_DATA_DIR_PATH);
-  scrapedBooks = await loadScrapedBooksMeta();
-  scrapedBooks.sort((a, b) => {
-    return a.fileName.localeCompare(b.fileName);
-  });
-  // scrapedBooks = scrapedBooks.slice(0, Math.round(scrapedBooks.length / 2));
-  scrapedBooks = zipShuffle(scrapedBooks);
-  scrapedBooksToDownload = [];
-  for(let i = 0; i < scrapedBooks.length; ++i) {
-    let scrapedBook: ScrapedBookWithFile, fileExists: boolean;
-    scrapedBook = scrapedBooks[i];
-    fileExists = await checkFile(scrapedBook.filePath);
-    if(
-      !fileExists
-      // || (scrapedBook.fileName[0] === 'a')
-    ) {
-      scrapedBooksToDownload.push(scrapedBook);
+async function parseBooksMain() {
+  console.log('parse ~');
+}
+
+type StreamFileOpts = {
+  lineCb?: (line: string) => void | Promise<void>;
+  chunkCb?: (chunk: string | Buffer) => void | Promise<void>;
+};
+
+async function streamFile(filePath: string, opts: StreamFileOpts) {
+  let lineCb: StreamFileOpts['lineCb'], chunkCb: StreamFileOpts['chunkCb'];
+  let rs: ReadStream;
+  let readPromise: Promise<void>, rl: readline.Interface;
+  let highWaterMark: number;
+
+  // highWaterMark = ALT_HIGH_WATERMARK;
+  lineCb = opts.lineCb;
+  chunkCb = opts.chunkCb;
+
+  readPromise = new Promise<void>((resolve, reject) => {
+    rs = createReadStream(filePath, {
+      highWaterMark,
+    });
+
+    rs.on('error', err => {
+      reject(err);
+    });
+    rs.on('close', () => {
+      resolve();
+    });
+    if(chunkCb !== undefined) {
+      rs.on('data', chunk => {
+        let chunkCbResult: void | Promise<void>;
+        chunkCbResult = chunkCb?.(chunk);
+        if(isPromise(chunkCbResult)) {
+          rs.pause();
+          chunkCbResult
+            .then(() => {
+              rs.resume();
+            })
+            .catch(err => {
+              reject(err);
+            });
+        }
+      });
     }
+    if(lineCb !== undefined) {
+      rl = readline.createInterface({
+        input: rs,
+        crlfDelay: Infinity,
+      });
+      rl.on('line', line => {
+        let lineCbResult: void | Promise<void>;
+        lineCbResult = lineCb?.(line);
+        if(isPromise(lineCbResult)) {
+          rl.pause();
+          lineCbResult
+            .then(() => {
+              rl.resume();
+            })
+            .catch(err => {
+              reject(err);
+            })
+          ;
+        }
+      });
+    }
+  });
+  await readPromise;
+  if(highWaterMark !== undefined) {
+    console.log(`highWaterMark: ${highWaterMark}`);
   }
 
-  console.log(`scrapedBooksToDownload: ${scrapedBooksToDownload.length.toLocaleString()}`);
-  downloadBooksResult = await downloadBooks(scrapedBooksToDownload, (book, doneCount, bookArr) => {
-    const donePrintMod = Math.ceil(bookArr.length / 150);
-    const donePercentPrintMod = Math.ceil(bookArr.length / 13);
-    if((doneCount % donePercentPrintMod) === 0) {
-      const donePercent = doneCount / bookArr.length;
-      process.stdout.write(`${Math.round(donePercent * 100)}%`);
-    } else if((doneCount % donePrintMod) === 0) {
-      process.stdout.write('.');
-    }
-  });
-  console.log('');
-  console.log(`Downloaded ${downloadBooksResult.doneCount.toLocaleString()} books in ${getIntuitiveTimeString(downloadBooksResult.ms)}`);
 }

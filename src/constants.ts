@@ -29,3 +29,13 @@ export const EBOOKS_DATA_DIR_PATH = [
   DATA_DIR_PATH,
   EBOOKS_DATA_DIR_NAME,
 ].join(path.sep);
+export const TXT_EBOOKS_META_DIR_NAME = 'txt-ebooks-meta';
+export const TXT_EBOOKS_META_DIR_PATH = [
+  DATA_DIR_PATH,
+  TXT_EBOOKS_META_DIR_NAME,
+].join(path.sep);
+export const TXT_EBOOKS_META_FILE_NAME = '_txt-ebook-meta.json';
+export const TXT_EBOOKS_META_FILE_PATH = [
+  TXT_EBOOKS_META_DIR_PATH,
+  TXT_EBOOKS_META_FILE_NAME,
+].join(path.sep);
