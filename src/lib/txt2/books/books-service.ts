@@ -14,12 +14,17 @@ import { getIntuitiveTimeString } from '../../../util/print-util';
 import { sleep } from '../../../util/sleep';
 
 export const MAX_CONCURRENT_DOWNLOADS = 75;
-export const MAX_TOTAL_SOCKETS = 75;
+export const MAX_TOTAL_SOCKETS = 50;
 
 export type ScrapedBookWithFile = {
   fileName: string;
   filePath: string;
 } & ScrapedBook;
+
+export type DownloadBooksResult = {
+  ms: number;
+  doneCount: number;
+};
 
 const getMemoizedLookup: () => LookupFunction = () => {
   let _lookup: LookupFunction;
@@ -58,62 +63,49 @@ const httpsAgent = new https.Agent({
 
 export async function downloadBooks(
   scrapedBooks: ScrapedBookWithFile[],
-  progressCb?: (doneBookCount: number, totalBooks: number) => void,
-) {
+  downloadCb?: (book: ScrapedBookWithFile, doneCount: number, bookArr: ScrapedBookWithFile[]) => void,
+): Promise<DownloadBooksResult> {
   let downloadBooksTimer: Timer, downloadBooksMs: number;
   let doneBookCount: number, donePercent: number,
     donePrintMod: number, donePercentPrintMod: number;
-  let scrapedBooksToDownload: ScrapedBookWithFile[];
   let runningDownloads: number;
   runningDownloads = 0;
   doneBookCount = 0;
-  scrapedBooksToDownload = [];
-  for(let i = 0; i < scrapedBooks.length; ++i) {
-    let scrapedBook: ScrapedBookWithFile, fileExists: boolean;
-    scrapedBook = scrapedBooks[i];
-    fileExists = await checkFile(scrapedBook.filePath);
-    if(!fileExists) {
-      scrapedBooksToDownload.push(scrapedBook);
-    }
-  }
-  console.log(`scrapedBooksToDownload: ${scrapedBooksToDownload.length.toLocaleString()}`);
-  console.log('');
 
-  donePrintMod = Math.ceil(scrapedBooksToDownload.length / 120);
-  donePercentPrintMod = Math.ceil(scrapedBooksToDownload.length / 13);
+  donePrintMod = Math.ceil(scrapedBooks.length / 120);
+  donePercentPrintMod = Math.ceil(scrapedBooks.length / 13);
   console.log(`donePrintMod: ${donePrintMod}`);
   console.log(`donePercentPrintMod: ${donePercentPrintMod}`);
 
   downloadBooksTimer = Timer.start();
-  for(let i = 0; i < scrapedBooksToDownload.length; ++i) {
+  for(let i = 0; i < scrapedBooks.length; ++i) {
     let scrapedBook: ScrapedBookWithFile;
     while(runningDownloads >= MAX_CONCURRENT_DOWNLOADS) {
       await sleep(10);
     }
-    scrapedBook = scrapedBooksToDownload[i];
+    scrapedBook = scrapedBooks[i];
     runningDownloads++;
     (async () => {
       await downloadBook(scrapedBook);
       runningDownloads--;
       doneBookCount++;
-      donePercent = doneBookCount / scrapedBooksToDownload.length;
-      if((doneBookCount % donePercentPrintMod) === 0) {
-        // process.stdout.write(`${(donePercent * 100).toFixed(1)}%`);
-        process.stdout.write(`${Math.round(donePercent * 100)}%`);
-      } else if((doneBookCount % donePrintMod) === 0) {
-        process.stdout.write('.');
-      }
-      // console.log(`Downloaded ${scrapedBook.title}`);
-      // console.log(`${doneBookCount}/${scrapedBooks.length}`);
-      // console.log(`${(donePercent * 100).toFixed(1)}%, ${getIntuitiveTimeString(downloadBooksTimer.currentMs())}`);
+      donePercent = doneBookCount / scrapedBooks.length;
+      downloadCb?.(scrapedBook, doneBookCount, scrapedBooks);
+      // if((doneBookCount % donePercentPrintMod) === 0) {
+      //   process.stdout.write(`${Math.round(donePercent * 100)}%`);
+      // } else if((doneBookCount % donePrintMod) === 0) {
+      //   process.stdout.write('.');
+      // }
     })();
   }
   while(runningDownloads > 0) {
     await sleep(10);
   }
-  console.log('');
   downloadBooksMs = downloadBooksTimer.stop();
-  console.log(`Downloaded ${doneBookCount.toLocaleString()} books in ${getIntuitiveTimeString(downloadBooksMs)}`);
+  return {
+    ms: downloadBooksMs,
+    doneCount: doneBookCount,
+  };
 }
 
 async function downloadBook(scrapedBook: ScrapedBookWithFile) {
