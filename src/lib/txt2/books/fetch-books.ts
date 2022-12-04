@@ -27,7 +27,7 @@ export async function fetchBooks() {
     fileExists = await checkFile(scrapedBook.filePath);
     if(
       !fileExists
-      || (scrapedBook.fileName[0] === 't')
+      // || (scrapedBook.fileName[0] === 't')
     ) {
       scrapedBooksToDownload.push(scrapedBook);
     }

@@ -3,7 +3,7 @@ import { Dirent } from 'fs';
 import { readdir, readFile } from 'fs/promises';
 import path from 'path';
 
-import { EBOOKS_DATA_DIR_PATH, SCRAPED_EBOOKS_DIR_PATH, SCRAPED_EBOOKS_FILE_NAME } from '../../../constants';
+import { EBOOKS_DATA_DIR_PATH, SCRAPED_EBOOKS_DIR_PATH, SCRAPED_EBOOKS_FILE_NAME, TXT_EBOOKS_META_FILE_PATH } from '../../../constants';
 import { checkDir } from '../../../util/files';
 import { ScrapedBook } from '../../gutenberg-scrape/gutenberg-scrape';
 import { ScrapedBookWithFile } from './books-service';
@@ -54,6 +54,12 @@ export async function loadScrapedBooksMeta(): Promise<ScrapedBookWithFile[]> {
   }
   console.log(scrapedBooksMeta.length);
   return scrapedBooksMeta;
+}
+
+export async function getTxtBookMeta(): Promise<ScrapedBookWithFile[]> {
+  let txtBookMeta: ScrapedBookWithFile[];
+  txtBookMeta = JSON.parse((await readFile(TXT_EBOOKS_META_FILE_PATH)).toString())
+  return txtBookMeta;
 }
 
 function getScrapedBookWithFileName(scrapedBook: ScrapedBook): ScrapedBookWithFile {
