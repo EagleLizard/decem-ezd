@@ -79,7 +79,7 @@ function getScrapedBookWithFileName(scrapedBook: ScrapedBook): ScrapedBookWithFi
 
 function getScrapedBookKebabTitle(title: string) {
   let titleNoPunct: string, titleKebabCase: string;
-  titleNoPunct = title.replace(/[^\p{L} ]/gu, '');
+  titleNoPunct = title.replace(/[^\p{L} 0-9]/gu, '');
   titleKebabCase = titleNoPunct
     .toLowerCase()
     .split(' ')

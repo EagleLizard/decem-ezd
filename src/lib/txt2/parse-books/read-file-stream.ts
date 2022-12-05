@@ -8,8 +8,8 @@ const ALT_HIGH_WATERMARK = 8 * 1024;
 // const ALT_HIGH_WATERMARK = 256;
 
 export type StreamFileOpts = {
-  lineCb?: (line: string) => void | Promise<void>;
-  chunkCb?: (chunk: string | Buffer) => void | Promise<void>;
+  lineCb?: (line?: string) => void | Promise<void>;
+  chunkCb?: (chunk?: string | Buffer) => void | Promise<void>;
 };
 
 export async function readFileStream(filePath: string, opts: StreamFileOpts) {
