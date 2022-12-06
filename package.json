@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "clean-books": "rimraf ./data/txt-ebooks"
+    "clean-books": "rm -rf ./data/txt-ebooks && rm data/txt-ebooks-meta/_txt-ebook-meta.json"
   },
   "author": "",
   "license": "ISC",

@@ -7,14 +7,12 @@ import { createWriteStream, WriteStream } from 'fs';
 import { Response } from 'node-fetch';
 
 import { fetchRetry } from '../../../util/fetch-retry';
-import { checkFile } from '../../../util/files';
 import { Timer } from '../../../util/timer';
 import { ScrapedBook } from '../../gutenberg-scrape/gutenberg-scrape';
-import { getIntuitiveTimeString } from '../../../util/print-util';
 import { sleep } from '../../../util/sleep';
 
-export const MAX_CONCURRENT_DOWNLOADS = 75;
-export const MAX_TOTAL_SOCKETS = 50;
+export const MAX_CONCURRENT_DOWNLOADS = 25;
+export const MAX_TOTAL_SOCKETS = 25;
 
 export type ScrapedBookWithFile = {
   fileName: string;
@@ -44,7 +42,6 @@ const getMemoizedLookup: () => LookupFunction = () => {
         return;
       }
       address = addresses?.[0];
-      // console.log(`\nresolved: '${hostname}' to: ${address}\n`);
       if(address !== undefined) {
         hostIpMap[hostname] = address;
       }
@@ -63,19 +60,22 @@ const httpsAgent = new https.Agent({
 
 export async function downloadBooks(
   scrapedBooks: ScrapedBookWithFile[],
-  downloadCb?: (book: ScrapedBookWithFile, doneCount: number, bookArr: ScrapedBookWithFile[]) => void,
+  downloadCb: (
+    err: NodeJS.ErrnoException & {
+      status?: number,
+      response?: Response,
+    },
+    result: {
+      book: ScrapedBookWithFile;
+    }
+  ) => void,
 ): Promise<DownloadBooksResult> {
   let downloadBooksTimer: Timer, downloadBooksMs: number;
-  let doneBookCount: number, donePercent: number,
-    donePrintMod: number, donePercentPrintMod: number;
+  let doneBookCount: number;
   let runningDownloads: number;
+
   runningDownloads = 0;
   doneBookCount = 0;
-
-  donePrintMod = Math.ceil(scrapedBooks.length / 120);
-  donePercentPrintMod = Math.ceil(scrapedBooks.length / 13);
-  console.log(`donePrintMod: ${donePrintMod}`);
-  console.log(`donePercentPrintMod: ${donePercentPrintMod}`);
 
   downloadBooksTimer = Timer.start();
   for(let i = 0; i < scrapedBooks.length; ++i) {
@@ -86,16 +86,27 @@ export async function downloadBooks(
     scrapedBook = scrapedBooks[i];
     runningDownloads++;
     (async () => {
-      await downloadBook(scrapedBook);
-      runningDownloads--;
-      doneBookCount++;
-      donePercent = doneBookCount / scrapedBooks.length;
-      downloadCb?.(scrapedBook, doneBookCount, scrapedBooks);
-      // if((doneBookCount % donePercentPrintMod) === 0) {
-      //   process.stdout.write(`${Math.round(donePercent * 100)}%`);
-      // } else if((doneBookCount % donePrintMod) === 0) {
-      //   process.stdout.write('.');
-      // }
+      try {
+        await downloadBook(scrapedBook);
+
+        downloadCb(undefined, {
+          book: scrapedBook,
+        });
+      } catch(e) {
+        if(
+          ((typeof e?.status) !== 'number')
+          || e?.status < 300
+        ) {
+          throw e;
+        } else {
+          downloadCb(e, {
+            book: scrapedBook,
+          });
+        }
+      } finally {
+        doneBookCount++;
+        runningDownloads--;
+      }
     })();
   }
   while(runningDownloads > 0) {
@@ -143,8 +154,7 @@ async function downloadBook(scrapedBook: ScrapedBookWithFile) {
         process.stdout.write(`RF${attempt}x`);
         break;
     }
-    // console.log(err?.message);
-    // console.log(`attempt: ${attempt}`);
+
     return (attempt * 100);
   };
   try {
@@ -158,6 +168,15 @@ async function downloadBook(scrapedBook: ScrapedBookWithFile) {
     console.error(e);
     console.error(e.code);
     throw e;
+  }
+
+  if(resp.status !== 200) {
+    throw {
+      ...(new Error(`Error: Status ${resp.status} from book ${scrapedBook.title}`)),
+      response: resp,
+      book: scrapedBook,
+      status: resp.status,
+    };
   }
 
   ws = createWriteStream(filePath);

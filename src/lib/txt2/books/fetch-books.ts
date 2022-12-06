@@ -9,8 +9,9 @@ import { writeFile, readFile } from 'fs/promises';
 
 export async function fetchBooks() {
   let scrapedBooks: ScrapedBookWithFile[];
-  let scrapedBooksToDownload: ScrapedBookWithFile[];
+  let booksToDownload: ScrapedBookWithFile[], booksDownloaded: ScrapedBookWithFile[];
   let downloadBooksResult: DownloadBooksResult;
+  let doneCount: number;
   console.log(`MAX_CONCURRENT_DOWNLOADS: ${MAX_CONCURRENT_DOWNLOADS}`);
   console.log(`MAX_TOTAL_SOCKETS: ${MAX_TOTAL_SOCKETS}`);
   await mkdirIfNotExistRecursive(EBOOKS_DATA_DIR_PATH);
@@ -20,33 +21,45 @@ export async function fetchBooks() {
   });
   // scrapedBooks = scrapedBooks.slice(0, Math.round(scrapedBooks.length / 2));
   scrapedBooks = zipShuffle(scrapedBooks);
-  scrapedBooksToDownload = [];
+  booksToDownload = [];
   for(let i = 0; i < scrapedBooks.length; ++i) {
     let scrapedBook: ScrapedBookWithFile, fileExists: boolean;
     scrapedBook = scrapedBooks[i];
     fileExists = await checkFile(scrapedBook.filePath);
     if(
       !fileExists
-      // || (scrapedBook.fileName[0] === 't')
+      // || (scrapedBook.fileName.startsWith('a-'))
     ) {
-      scrapedBooksToDownload.push(scrapedBook);
+      booksToDownload.push(scrapedBook);
     }
   }
 
-  console.log(`scrapedBooksToDownload: ${scrapedBooksToDownload.length.toLocaleString()}`);
-  downloadBooksResult = await downloadBooks(scrapedBooksToDownload, (book, doneCount, bookArr) => {
-    const donePrintMod = Math.ceil(bookArr.length / 150);
-    const donePercentPrintMod = Math.ceil(bookArr.length / 13);
+  doneCount = 0;
+  booksDownloaded = [];
+
+  const donePrintMod = Math.ceil(booksToDownload.length / 150);
+  const donePercentPrintMod = Math.ceil(booksToDownload.length / 13);
+
+  console.log(`scrapedBooksToDownload: ${booksToDownload.length.toLocaleString()}`);
+  downloadBooksResult = await downloadBooks(booksToDownload, (err, res) => {
+    let donePercent: number;
+    doneCount++;
+
+    if(err) {
+      process.stdout.write(`ST${err?.status}x`);
+    } else {
+      booksDownloaded.push(res.book);
+    }
     if((doneCount % donePercentPrintMod) === 0) {
-      const donePercent = doneCount / bookArr.length;
+      donePercent = doneCount / booksToDownload.length;
       process.stdout.write(`${Math.round(donePercent * 100)}%`);
     } else if((doneCount % donePrintMod) === 0) {
       process.stdout.write('.');
     }
   });
   console.log('');
-  console.log(`Downloaded ${downloadBooksResult.doneCount.toLocaleString()} books in ${getIntuitiveTimeString(downloadBooksResult.ms)}`);
-  await writeTxtBookMeta(scrapedBooksToDownload);
+  console.log(`Downloaded ${booksDownloaded.length.toLocaleString()} books in ${getIntuitiveTimeString(downloadBooksResult.ms)}`);
+  await writeTxtBookMeta(booksDownloaded);
 }
 
 async function writeTxtBookMeta(scrapedBooks: ScrapedBookWithFile[]) {

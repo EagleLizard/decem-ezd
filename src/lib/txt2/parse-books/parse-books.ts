@@ -22,13 +22,43 @@ export async function parseBooksMain() {
   console.log(booksMeta.length);
   const testBookFilter = (bookMeta: ScrapedBookWithFile) => {
     return (
+      // bookMeta.fileName.startsWith('p')
       [
         'the-witness-of-the-stars-by-e-w-bullinger',
-        'the-declaration-of-independence-of-the-united-states-of-america-by-thomas-jefferson',
+        // 'the-declaration-of-independence-of-the-united-states-of-america-by-thomas-jefferson',
         'plutarchs-lives-volume-1-of-4-by-plutarch',
+        'civilization-in-the-united-states-an-inquiry-by-thirty-americans-by-harold-stearns',
+        'ten-reasons-proposed-to-his-adversaries-for-disputation-in-the-name-by-campion',
+        //---
+        'campaign-pictures-of-the-war-in-south-africa-18991900-by-a-g-hales',
+        'chicago-and-the-old-northwest-16731835-by-milo-milton-quaife',
+        'childrens-hour-with-red-riding-hood-and-other-stories-by-pseud-watty-piper',
+        'christina-albertas-father-by-h-g-wells',
+        'christmas-eve-at-mulligans-by-marie-irish',
+        'civilization-in-the-united-states-an-inquiry-by-thirty-americans-by-harold-stearns',
+        //---
+        'dante-the-central-man-of-all-the-world-by-john-t-slattery',
+        'david-thompson-the-explorer-by-charles-norris-cochrane',
+        'david-thompsonthe-explorer-by-charles-norris-cochrane',
+        'democracy-in-america-volume-1-by-alexis-de-tocqueville',
+        'dishes-made-without-meat-by-mrs-c-s-peel',
+        'don-sturdy-in-the-tombs-of-gold-or-the-old-egyptians-great-secret-by-appleton',
+        'dr-vermonts-fantasy-and-other-stories-by-hannah-lynch',
+        //---
+        'paradisi-in-sole-paradisus-terrestris-a-garden-of-all-sorts-of-pleasant-flowers',
+        'paradisi-in-sole-paradisus-terrestris-or-a-garden-of-all-sorts-of-pleasant',
+        'physiological-economy-in-nutrition-with-special-reference-to-the-minimal',
+        'physiological-economy-in-nutrition-with-special-reference-to-the-minimal-proteid',
+        'plutarch-lives-of-the-noble-grecians-and-romans-by-plutarch',
+        'plutarchs-lives-volume-1-of-4-by-plutarch',
+        'poine-a-study-in-ancient-greek-bloodvengeance-by-hubert-joseph-treston',
+        'prehistoric-villages-castles-and-towers-of-southwestern-colorado-by-fewkes',
+        'present-status-and-prospects-of-the-peace-movement-by-bertha-von-suttner',
+        'present-status-and-prospects-of-the-peace-movement-by-bertha-von-süttner',
+        'prince-ragnal-and-other-holiday-verses-by-eleanor-c-donnelly',
       ].some(missingTagTxt => missingTagTxt.includes(bookMeta.fileName))
-      || bookMeta.fileName.includes('the-art-of-war-by-active-6th-century-bc-sunzi')
-      || bookMeta.fileName.includes('art-of-war')
+      // || bookMeta.fileName.includes('the-art-of-war-by-active-6th-century-bc-sunzi')
+      // || bookMeta.fileName.includes('art-of-war')
       || true
     );
   };
