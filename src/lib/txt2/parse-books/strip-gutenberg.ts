@@ -6,24 +6,36 @@
 import { ScrapedBookWithFile } from '../books/books-service';
 import { readFileStream } from './read-file-stream';
 
-export async function stripGutenbergBook(book: ScrapedBookWithFile) {
+export async function stripGutenbergBook(
+  book: ScrapedBookWithFile,
+  opts: {
+    cb: (
+      err: NodeJS.ErrnoException & {
+        hasSmallPrint: boolean;
+      },
+      book: ScrapedBookWithFile,
+    ) => void;
+  }
+) {
   let startTagParsed: boolean, endTagParsed: boolean;
   let parseStartTag: boolean, parseEndTag: boolean;
-  let startTagLineCount: number;
-
-  let startTagLine: string;
-
-  startTagLineCount = 0;
+  let hasSmallPrint: boolean;
+  let hasErr: boolean;
 
   startTagParsed = false;
   endTagParsed = false;
   const lineCb = (rawLine: string) => {
     let line: string;
-    line = rawLine.trim().toLowerCase();
-    // line = rawLine;
+    // line = rawLine.trim().toLowerCase();
+    line = rawLine;
+    if(hasSmallPrint) {
+      return;
+    }
     if(!startTagParsed) {
       if(startTagRx(line)) {
         parseStartTag = true;
+      } else if(smallPrintRx(line)) {
+        hasSmallPrint = true;
       }
     } else if(!endTagParsed) {
       if(endTagRx(line)) {
@@ -31,7 +43,6 @@ export async function stripGutenbergBook(book: ScrapedBookWithFile) {
       }
     }
     if(parseStartTag) {
-      startTagLineCount++;
       if(startTagEndRx(line)) {
         // console.log(line);
         parseStartTag = false;
@@ -49,16 +60,28 @@ export async function stripGutenbergBook(book: ScrapedBookWithFile) {
   await readFileStream(book.filePath, {
     lineCb,
   });
-  if(!startTagParsed || !endTagParsed) {
-    console.log('');
-    console.log(book.fileName);
-    if(!startTagParsed) {
-      console.log('Missing start tags');
-      // console.log(startTagLine);
+  hasErr = !startTagParsed || !endTagParsed || hasSmallPrint;
+
+  if(hasErr) {
+    if(hasSmallPrint) {
+      // console.log('__Small print');
     }
-    if(!endTagParsed) {
-      console.log('Missing end tags');
+    if(!hasSmallPrint) {
+      console.log(`\n${book.fileName}`);
+      if(!startTagParsed) {
+        console.log('Missing start tags');
+      }
+      if(!endTagParsed) {
+        console.log('Missing end tags');
+      }
     }
+    const err = {
+      ...(new Error(`Failed to strip: ${book.fileName}`)),
+      hasSmallPrint,
+    };
+    opts.cb(err, book);
+  } else {
+    opts.cb(undefined, book);
   }
 }
 
