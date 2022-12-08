@@ -5,12 +5,12 @@ import { parseBooksMain } from './parse-books/parse-books';
 
 enum TXT2_ARGS {
   SCRAPE = 'SCRAPE',
-  PARSE = 'PARSE',
+  STRIP = 'STRIP',
 }
 
 const TXT2_ARG_MAP: Record<TXT2_ARGS, string> = {
   [TXT2_ARGS.SCRAPE]: 'scrape',
-  [TXT2_ARGS.PARSE]: 'parse',
+  [TXT2_ARGS.STRIP]: 'strip',
 };
 
 export async function txt2Main(argv: string[]) {
@@ -24,7 +24,7 @@ export async function txt2Main(argv: string[]) {
     case TXT2_ARG_MAP.SCRAPE:
       await gutenbergScrapeMain();
       break;
-    case TXT2_ARG_MAP.PARSE:
+    case TXT2_ARG_MAP.STRIP:
       await parseBooksMain();
       break;
     default:
