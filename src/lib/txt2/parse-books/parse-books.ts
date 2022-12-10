@@ -14,8 +14,6 @@ import { ScrapedBookWithFile } from '../books/books-service';
 import { readFileStream } from './read-file-stream';
 import { stripGutenbergBook, StripGutenbergError } from './strip-gutenberg';
 
-const MAX_CONCURRENT_BOOK_STREAMS = 20;
-
 const DELIM_START_TAG_VAL = '<!--a1f55f5400';
 
 export async function parseBooksMain() {
@@ -28,27 +26,6 @@ export async function parseBooksMain() {
   const testBookFilter = (bookMeta: ScrapedBookWithFile) => {
     return (
       // bookMeta.fileName.startsWith('p')
-      // ![
-      //   'a-vindication-of-the-rights-of-woman-by-mary-wollstonecraft',
-      //   'the-2000-cia-world-factbook-by-united-states-central-intelligence-agency',
-      //   'the-2010-cia-world-factbook-by-united-states-central-intelligence-agency',
-      //   'an-index-of-the-divine-comedy-by-dante-by-dante-alighieri',
-      //   'the-analects-of-confucius-from-the-chinese-classics-by-confucius',
-      //   'the-chinese-classics-volume-1-confucian-analects-by-james-legge',
-      //   'the-crowd-a-study-of-the-popular-mind-by-gustave-le-bon',
-      //   'the-declaration-of-independence-of-the-united-states-of-america-by-thomas-jefferson',
-      //   'the-decameron-volume-i-by-giovanni-boccaccio',
-      //   'the-koran-alquran-by-g-margoliouth-and-j-m-rodwell',
-      //   'hamlet-by-william-shakespeare',
-      //   'in-darkest-england-and-the-way-out-by-william-booth',
-      //   'les-trois-mousquetaires-by-alexandre-dumas',
-      //   'moby-word-lists-by-grady-ward',
-      //   'the-united-states-bill-of-rights-by-united-states',
-      //   'this-country-of-ours-by-h-e-marshall',
-      //   'othello-by-william-shakespeare',
-      //   'websters-unabridged-dictionary-by-various',
-      //   'plutarch-lives-of-the-noble-grecians-and-romans-by-plutarch',
-      // ].some(missingTagTxt => missingTagTxt.includes(bookMeta.fileName))
       bookMeta.fileName.includes('the-art-of-war-by-active-6th-century-bc-sunzi')
       // || bookMeta.fileName.includes('art-of-war')
       || true

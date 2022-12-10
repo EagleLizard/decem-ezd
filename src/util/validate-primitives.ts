@@ -5,3 +5,7 @@ export function isString(val: unknown): val is string {
   }
   return false;
 }
+
+export function isNumber(val: unknown): val is number {
+  return (typeof val) === 'number';
+}

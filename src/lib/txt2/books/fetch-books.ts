@@ -4,8 +4,6 @@ import { checkFile, mkdirIfNotExistRecursive } from '../../../util/files';
 import {
   downloadBooks,
   DownloadBooksResult,
-  MAX_CONCURRENT_DOWNLOADS,
-  MAX_TOTAL_SOCKETS,
   ScrapedBookWithFile,
 } from './books-service';
 import { getScrapedBooksMeta } from './book-meta-service';
@@ -18,8 +16,7 @@ export async function fetchBooks() {
   let booksToDownload: ScrapedBookWithFile[], booksDownloaded: ScrapedBookWithFile[];
   let downloadBooksResult: DownloadBooksResult;
   let doneCount: number;
-  console.log(`MAX_CONCURRENT_DOWNLOADS: ${MAX_CONCURRENT_DOWNLOADS}`);
-  console.log(`MAX_TOTAL_SOCKETS: ${MAX_TOTAL_SOCKETS}`);
+
   await mkdirIfNotExistRecursive(EBOOKS_DATA_DIR_PATH);
   scrapedBooks = await getScrapedBooksMeta();
   console.log(`scrapedBooks.length: ${scrapedBooks.length.toLocaleString()}`);
@@ -36,7 +33,7 @@ export async function fetchBooks() {
     if(
       !fileExists
       // || (scrapedBook.fileName.startsWith('a-'))
-      // || (scrapedBook.fileName.startsWith('p'))
+      // || scrapedBook.fileName.startsWith('p')
     ) {
       booksToDownload.push(scrapedBook);
     }

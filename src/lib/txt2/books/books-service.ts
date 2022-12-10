@@ -5,14 +5,14 @@ import { LookupFunction } from 'net';
 import { createWriteStream, WriteStream } from 'fs';
 
 import { Response } from 'node-fetch';
+import _chunk from 'lodash.chunk';
 
 import { fetchRetry } from '../../../util/fetch-retry';
 import { Timer } from '../../../util/timer';
 import { ScrapedBook } from '../../gutenberg-scrape/gutenberg-scrape';
-import { sleep } from '../../../util/sleep';
+import { isNumber } from '../../../util/validate-primitives';
 
-export const MAX_CONCURRENT_DOWNLOADS = 25;
-export const MAX_TOTAL_SOCKETS = 25;
+const BOOK_DOWNLOAD_CHUNK_SIZE = 50;
 
 export type ScrapedBookWithFile = {
   fileName: string;
@@ -24,102 +24,72 @@ export type DownloadBooksResult = {
   doneCount: number;
 };
 
-const getMemoizedLookup: () => LookupFunction = () => {
-  let _lookup: LookupFunction;
-  let hostIpMap: Record<string, string>;
-  hostIpMap = {};
-  _lookup = (hostname, opts, cb) => {
-    if(hostIpMap[hostname] !== undefined) {
-      process.nextTick(() => {
-        cb(undefined, hostIpMap[hostname], 4);
-      });
-      return;
-    }
-    dns.resolve4(hostname, (err, addresses) => {
-      let address: string;
-      if(err) {
-        cb(err, undefined, undefined);
-        return;
-      }
-      address = addresses?.[0];
-      if(address !== undefined) {
-        hostIpMap[hostname] = address;
-      }
-      cb(err, addresses?.[0], 4);
-    });
-  };
-  return _lookup;
+export type DownloadBookCbError = NodeJS.ErrnoException & {
+  status?: number,
+  response?: Response,
+};
+export type DownloadBookCbResult = {
+  book: ScrapedBookWithFile;
 };
 
-const httpsAgent = new https.Agent({
+const sharedHttpsAgent = new https.Agent({
   family: 4,
-  keepAlive: false,
-  maxTotalSockets: MAX_TOTAL_SOCKETS,
   lookup: getMemoizedLookup(),
 });
 
 export async function downloadBooks(
   scrapedBooks: ScrapedBookWithFile[],
-  downloadCb: (
-    err: NodeJS.ErrnoException & {
-      status?: number,
-      response?: Response,
-    },
-    result: {
-      book: ScrapedBookWithFile;
-    }
-  ) => void,
+  downloadCb: (err: DownloadBookCbError, result: DownloadBookCbResult) => void,
 ): Promise<DownloadBooksResult> {
   let downloadBooksTimer: Timer, downloadBooksMs: number;
+  let bookChunks: ScrapedBookWithFile[][];
   let doneBookCount: number;
-  let runningDownloads: number;
 
-  runningDownloads = 0;
+  console.log('');
+  console.log(`BOOK_DOWNLOAD_CHUNK_SIZE: ${BOOK_DOWNLOAD_CHUNK_SIZE}`);
+  console.log('');
+
   doneBookCount = 0;
+  bookChunks = _chunk(scrapedBooks, BOOK_DOWNLOAD_CHUNK_SIZE);
 
   downloadBooksTimer = Timer.start();
-  for(let i = 0; i < scrapedBooks.length; ++i) {
-    let scrapedBook: ScrapedBookWithFile;
-    while(runningDownloads >= MAX_CONCURRENT_DOWNLOADS) {
-      await sleep(10);
-    }
-    scrapedBook = scrapedBooks[i];
-    runningDownloads++;
-    (async () => {
-      try {
-        await downloadBook(scrapedBook);
 
-        downloadCb(undefined, {
-          book: scrapedBook,
-        });
-      } catch(e) {
-        if(
-          ((typeof e?.status) !== 'number')
-          || e?.status < 300
-        ) {
-          throw e;
-        } else {
-          downloadCb(e, {
-            book: scrapedBook,
-          });
+  for(let i = 0; i < bookChunks.length; ++i) {
+    let currBookChunk: ScrapedBookWithFile[], bookChunkPromises: Promise<void>[];
+    currBookChunk = bookChunks[i];
+    bookChunkPromises = [];
+    for(let k = 0; k < currBookChunk.length; ++k) {
+      let currBook: ScrapedBookWithFile, currBookPromise: Promise<void>;
+      currBook = currBookChunk[k];
+      currBookPromise = (async () => {
+        let cbErr: DownloadBookCbError;
+        try {
+          await downloadBook(currBook, sharedHttpsAgent);
+        } catch(e) {
+          if(!isNumber(e?.status) || (e.status < 300)) {
+            throw e;
+          }
+          cbErr = e;
         }
-      } finally {
+        downloadCb(cbErr, {
+          book: currBook,
+        });
         doneBookCount++;
-        runningDownloads--;
-      }
-    })();
+      })();
+      bookChunkPromises.push(currBookPromise);
+    }
+    await Promise.all(bookChunkPromises);
   }
-  while(runningDownloads > 0) {
-    await sleep(10);
-  }
+
   downloadBooksMs = downloadBooksTimer.stop();
+
   return {
     ms: downloadBooksMs,
     doneCount: doneBookCount,
   };
 }
 
-async function downloadBook(scrapedBook: ScrapedBookWithFile) {
+async function downloadBook(scrapedBook: ScrapedBookWithFile, httpsAgent?: https.Agent) {
   let filePath: string;
   let resp: Response, ws: WriteStream;
 
@@ -189,4 +159,31 @@ async function downloadBook(scrapedBook: ScrapedBookWithFile) {
     });
     resp.body.pipe(ws);
   });
+}
+
+function getMemoizedLookup(): LookupFunction {
+  let _lookup: LookupFunction;
+  let hostIpMap: Record<string, string>;
+  hostIpMap = {};
+  _lookup = (hostname, opts, cb) => {
+    if(hostIpMap[hostname] !== undefined) {
+      process.nextTick(() => {
+        cb(undefined, hostIpMap[hostname], 4);
+      });
+      return;
+    }
+    dns.resolve4(hostname, (err, addresses) => {
+      let address: string;
+      if(err) {
+        cb(err, undefined, undefined);
+        return;
+      }
+      address = addresses?.[0];
+      if(address !== undefined) {
+        hostIpMap[hostname] = address;
+      }
+      cb(err, addresses?.[0], 4);
+    });
+  };
+  return _lookup;
 }

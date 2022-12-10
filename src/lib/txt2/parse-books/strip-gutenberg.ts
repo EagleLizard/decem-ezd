@@ -37,12 +37,8 @@ export async function stripGutenbergBook(
   startTagParsed = false;
   endTagParsed = false;
 
-  const lineCb = (rawLine: string) => {
-    let line: string;
+  const lineCb = (line: string) => {
     let startTagRxExecArr: RegExpExecArray, startTagCursor: number;
-
-    // line = rawLine.trim().toLowerCase();
-    line = rawLine;
 
     startTagCursor = 0;
     if(hasSmallPrint) {
@@ -60,7 +56,6 @@ export async function stripGutenbergBook(
       endTagParsed = true;
     }
     if(parseStartTag) {
-
       for(let i = startTagCursor; i < line.length; ++i) {
         if(line[i] === GUTENBERG_TAG_MARKER) {
           parseStartTagEndMarkers = true;
