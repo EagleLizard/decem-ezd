@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "clean-books": "rm -rf ./data/txt-ebooks && rm data/txt-ebooks-meta/_txt-ebook-meta.json"
+    "clean-books": "rm -rf ./data/txt-ebooks && rm data/txt-ebooks-meta/_txt-ebook-meta.json",
+    "clean-stripped-books": "rm -rf ./data/txt-ebooks-stripped"
   },
   "author": "",
   "license": "ISC",

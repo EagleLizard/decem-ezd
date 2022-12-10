@@ -18,7 +18,7 @@ export const DATA_DIR_PATH = [
 
 export const SCRAPED_EBOOKS_DIR_NAME = 'scraped-ebooks';
 export const SCRAPED_EBOOKS_DIR_PATH = [
-  DATA_DIRNAME,
+  DATA_DIR_PATH,
   SCRAPED_EBOOKS_DIR_NAME,
 ].join(path.sep);
 export const SCRAPED_EBOOKS_FILE_NAME = 'scraped_ebooks.json';
@@ -29,6 +29,12 @@ export const EBOOKS_DATA_DIR_PATH = [
   DATA_DIR_PATH,
   EBOOKS_DATA_DIR_NAME,
 ].join(path.sep);
+export const STRIPPED_EBOOKS_DIR_NAME = 'txt-ebooks-stripped';
+export const STRIPPED_EBOOKS_DIR_PATH = [
+  DATA_DIR_PATH,
+  STRIPPED_EBOOKS_DIR_NAME,
+].join(path.sep);
+
 export const TXT_EBOOKS_META_DIR_NAME = 'txt-ebooks-meta';
 export const TXT_EBOOKS_META_DIR_PATH = [
   DATA_DIR_PATH,

@@ -21,6 +21,7 @@ export async function stripGutenbergBook(
       err: StripGutenbergError,
       book: ScrapedBookWithFile,
     ) => void;
+    lineCb: (line: string) => void;
   }
 ) {
   let startTagParsed: boolean, endTagParsed: boolean;
@@ -76,6 +77,7 @@ export async function stripGutenbergBook(
     } else {
       if(startTagParsed && !endTagParsed) {
         // call the inner line cb
+        opts.lineCb(line);
       }
     }
   };

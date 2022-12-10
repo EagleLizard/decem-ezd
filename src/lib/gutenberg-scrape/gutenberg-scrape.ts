@@ -11,22 +11,16 @@ import { Timer } from '../../util/timer';
 import { sleep } from '../../util/sleep';
 import { mkdirIfNotExistRecursive } from '../../util/files';
 import { getCurrentDateString } from '../../util/date-time';
+import { TOP_LISTS_ENUM, TOP_LISTS_FILE_PREFIX_MAP, TOP_LISTS_ID_MAP, TOP_LIST_ENUM_ARR, TOP_PAGES_ENUM, TOP_PAGES_FILE_PREFIX_MAP, TOP_PAGES_URL_MAP } from './scrape-constants';
 
 const NUM_CPUS = os.cpus().length;
-// const MAX_CONCURRENT_PAGES = 1;
-// const MAX_CONCURRENT_PAGES = 2;
-// const MAX_CONCURRENT_PAGES = Math.ceil(NUM_CPUS / 2);
 const MAX_CONCURRENT_PAGES = NUM_CPUS - 1;
-// const MAX_CONCURRENT_PAGES = Math.ceil(NUM_CPUS * Math.LOG2E);
-
-const GUTENBERG_TOP_1000_URL = 'https://www.gutenberg.org/browse/scores/top1000.php';
-
-const TOP_1000_MONTH_SELECTOR = 'ol > a[href=\'#authors-last30\']';
 
 export type ScrapedBook = {
   title: string;
   plaintextUrl: string;
   pageUrl: string;
+  rank: number;
 };
 
 type GetPuppeteerLaunchArgsParams = {
@@ -40,47 +34,170 @@ export async function gutenbergScrapeMain() {
 }
 
 async function gutenbergScraper() {
-  let browser: puppeteer.Browser;
+  let browser: puppeteer.Browser, launchArgs: string[];
   let viewportWidth: number, viewportHeight: number;
-  let args: string[];
   // viewportWidth = 1280;
   // viewportHeight = 768;
   viewportWidth = 640;
   viewportHeight = 384;
-  // viewportWidth = 320;
-  // viewportHeight = 192;
 
   console.log('scraper');
-  // console.log(puppeteer.defaultArgs());
-  args = getPuppeteerLaunchArgs({
+  launchArgs = getPuppeteerLaunchArgs({
     viewportWidth,
     viewportHeight,
   });
-  console.log(args);
+  console.log(launchArgs);
   browser = await puppeteer.launch({
     headless: true,
-    args,
+    args: launchArgs,
     defaultViewport: {
       width: viewportWidth,
       height: viewportHeight,
     },
     userDataDir: `${DATA_DIR_PATH}${path.sep}chromium_user`,
   });
+  await scrapeTop100(browser);
   await scrapeTop1000(browser);
+
   await browser.close();
 }
 
-async function scrapeTop1000(browser: puppeteer.Browser) {
-  let page: puppeteer.Page;
-  let allBookLinks: string[], bookLinks: string[];
-  let scrapedBooks: ScrapedBook[], notFoundScrapedBooks: ScrapedBook[];
-  let currentDateString: string;
-  let scrapedEBooksFileName: string, scrapedEBooksNotFoundFileName: string;
-  let scrapedEBooksFilePath: string, scrapedEBooksNotFoundFilePath: string;
+async function scrapeTop100(browser: puppeteer.Browser) {
+  console.log('Scraping top100');
+  await scrapeTopPage(browser, TOP_PAGES_ENUM.TOP_100);
+}
 
-  let scrapeBooksTimer: Timer, scrapedBooksMs: number;
-  let completedScrapeTasks: number;
-  let runningScrapeTasks: number;
+async function scrapeTop1000(browser: puppeteer.Browser) {
+  console.log('Scraping top1k');
+  return scrapeTopPage(browser, TOP_PAGES_ENUM.TOP_1000);
+}
+
+async function scrapeTopPage(browser: puppeteer.Browser, topPageType: TOP_PAGES_ENUM) {
+  let scrapeTopListResult: Record<string, string[]>;
+  let totalBooksScraped: number;
+  let scrapeTimer: Timer, scrapeMs: number;
+
+  scrapeTopListResult = await scrapeTopBookLists(browser, topPageType);
+  totalBooksScraped = 0;
+
+  const _getPlaintextLink = getPlaintextLinkMemo();
+
+  scrapeTimer = Timer.start();
+
+  for(let i = 0; i < TOP_LIST_ENUM_ARR.length; ++i) {
+    let currTopListEnum: TOP_LISTS_ENUM, currTopListKey: string, currTopListLinks: string[];
+    let scrapedBooks: ScrapedBook[], notFoundScrapedBooks: ScrapedBook[];
+    let runningScrapeTasks: number, completedScrapeTasks: number;
+    let currDateStr: string;
+
+    currTopListEnum = TOP_LIST_ENUM_ARR[i];
+    currTopListKey = TOP_LISTS_ID_MAP[currTopListEnum];
+    currTopListLinks = scrapeTopListResult[currTopListKey];
+
+    currDateStr = getCurrentDateString();
+    scrapedBooks = [];
+    notFoundScrapedBooks = [];
+    runningScrapeTasks = 0;
+    completedScrapeTasks = 0;
+
+    console.log(currTopListKey);
+
+    for(let k = 0; k < currTopListLinks.length; ++k) {
+      let currBookLink: string, currBookRank: number;
+
+      currBookLink = currTopListLinks[k];
+      currBookRank = k + 1;
+
+      while(runningScrapeTasks >= MAX_CONCURRENT_PAGES) {
+        await sleep(10);
+      }
+      runningScrapeTasks++;
+      (async () => {
+        let scrapedBook: ScrapedBook;
+        scrapedBook = await _getPlaintextLink(browser, currBookLink, currBookRank);
+        if(scrapedBook.plaintextUrl === undefined) {
+          notFoundScrapedBooks.push(scrapedBook);
+        } else {
+          scrapedBooks.push(scrapedBook);
+        }
+        completedScrapeTasks++;
+        if((completedScrapeTasks % 10) === 0) {
+          process.stdout.write('.');
+        }
+        runningScrapeTasks--;
+      })();
+    }
+    while(runningScrapeTasks > 0) {
+      await sleep(10);
+    }
+    console.log('');
+    totalBooksScraped += completedScrapeTasks;
+    await writeScrapedBooksFile(
+      currTopListEnum,
+      topPageType,
+      currDateStr,
+      scrapedBooks,
+      notFoundScrapedBooks,
+    );
+  }
+
+  scrapeMs = scrapeTimer.stop();
+
+  console.log(`scraped ${totalBooksScraped.toLocaleString()} books in ${getIntuitiveTimeString(scrapeMs)}`);
+}
+
+function getPlaintextLinkMemo() {
+  let scrapedBookCache: Record<string, ScrapedBook>;
+  scrapedBookCache = {};
+  return async (browser: puppeteer.Browser, bookLink: string, rank: number): Promise<ScrapedBook> => {
+    let scrapedBook: ScrapedBook;
+    if(scrapedBookCache[bookLink] === undefined) {
+      scrapedBook = await getPlaintextLink(browser, bookLink, rank);
+      scrapedBookCache[bookLink] = scrapedBook;
+    } else {
+      scrapedBook = scrapedBookCache[bookLink];
+    }
+    return scrapedBook;
+  };
+}
+
+async function writeScrapedBooksFile(
+  topListType: TOP_LISTS_ENUM,
+  topPageType: TOP_PAGES_ENUM,
+  dateStr: string,
+  scrapedBooks: ScrapedBook[],
+  notFoundScrapedBooks: ScrapedBook[]
+) {
+  let scrapedBooksFileName: string, scrapedBooksFilePath: string;
+  let notFoundScrapedBooksFileName: string, notFoundScrapedBooksFilePath: string;
+  let topListFilePrefix: string, topPageFilePrefix: string;
+  await mkdirIfNotExistRecursive(SCRAPED_EBOOKS_DIR_PATH);
+  topListFilePrefix = TOP_LISTS_FILE_PREFIX_MAP[topListType];
+  topPageFilePrefix = TOP_PAGES_FILE_PREFIX_MAP[topPageType];
+  scrapedBooksFileName = `${dateStr}_${topPageFilePrefix}_${topListFilePrefix}_${SCRAPED_EBOOKS_FILE_NAME}`;
+  notFoundScrapedBooksFileName = `${dateStr}_${topPageFilePrefix}_${topListFilePrefix}_${SCRAPED_EBOOKS_NOT_FOUND_FILE_NAME}`;
+  scrapedBooksFilePath = [
+    SCRAPED_EBOOKS_DIR_PATH,
+    scrapedBooksFileName,
+  ].join(path.sep);
+  notFoundScrapedBooksFilePath = [
+    SCRAPED_EBOOKS_DIR_PATH,
+    notFoundScrapedBooksFileName,
+  ].join(path.sep);
+
+  await writeFile(scrapedBooksFilePath, JSON.stringify(scrapedBooks, null, 2));
+  await writeFile(notFoundScrapedBooksFilePath, JSON.stringify(notFoundScrapedBooks, null, 2));
+}
+
+async function scrapeTopBookLists(browser: puppeteer.Browser, topPageType: TOP_PAGES_ENUM): Promise<Record<string, string[]>> {
+  let page: puppeteer.Page;
+  let topPageUrl: string;
+  let bookListLinksMap: Record<string, string[]>;
+  let expectedTopListIds: string[];
+
+  topPageUrl = TOP_PAGES_URL_MAP[topPageType];
+
+  const TOP_LIST_WAIT_SELECTOR = 'ol > a[href=\'#authors-last30\']';
 
   await mkdirIfNotExistRecursive(DATA_DIR_PATH);
 
@@ -96,84 +213,62 @@ async function scrapeTop1000(browser: puppeteer.Browser) {
     return request.continue();
   });
 
-  await page.goto(GUTENBERG_TOP_1000_URL);
-  await page.waitForSelector(TOP_1000_MONTH_SELECTOR);
-  allBookLinks = await page.evaluate((top1000MonthSelector) => {
-    return [
-      ...(
-        document
-          .querySelectorAll('ol li a[href^=\'/ebooks/\']')
-      )
-    ].map((anchorEl: HTMLAnchorElement) => {
-      return anchorEl.href;
+  await page.goto(topPageUrl);
+
+  await page.waitForSelector(TOP_LIST_WAIT_SELECTOR);
+
+  bookListLinksMap = {};
+
+  bookListLinksMap = await page.evaluate(() => {
+    let listMap: Record<string, string[]>;
+    let bookLists: HTMLElement[] = [
+      ...document.querySelectorAll('ol')
+    ].filter(el => el.querySelector('li a[href^=\'/ebooks/\']') !== null);
+    let listTitleIds = bookLists
+      .map(el => el.previousElementSibling)
+      .map(el => el.querySelector('[id^="books-last"]').getAttribute('id'))
+    ;
+    listMap = {};
+    listMap = listTitleIds.reduce((acc, curr, idx) => {
+      let currListBookLinks: string[];
+      currListBookLinks = [
+        ...bookLists[idx].querySelectorAll('li a[href^=\'/ebooks/\']')
+      ].map((anchorEl: HTMLAnchorElement) => {
+        return anchorEl.href;
+      });
+      acc[curr] = currListBookLinks;
+      return acc;
+    }, listMap);
+
+    return listMap;
+  });
+
+  expectedTopListIds = [ ...Object.values(TOP_LISTS_ID_MAP) ];
+
+  expectedTopListIds.forEach((expectedTopListId) => {
+    let foundNonStringIdx: number, bookListLinks: string[];
+    bookListLinks = bookListLinksMap[expectedTopListId];
+    if(!Array.isArray(bookListLinks)) {
+      throw new Error(`Did not scrape expected list for "${expectedTopListId}"`);
+    }
+    foundNonStringIdx = bookListLinks.findIndex(listLink => {
+      return (typeof listLink) !== 'string';
     });
-  }, TOP_1000_MONTH_SELECTOR);
+
+    if(foundNonStringIdx !== -1) {
+      const foundNonStringBookLink = bookListLinks[foundNonStringIdx];
+      console.error('foundNonStringBookLink');
+      console.error(foundNonStringBookLink);
+      throw new Error(`Unexpected type in bookLink list "${expectedTopListId}" at index ${foundNonStringIdx}. Expected 'string', received: ${typeof foundNonStringBookLink}`);
+    }
+  });
+
   await page.close();
 
-  console.log('allBookLinks.length');
-  console.log(allBookLinks.length);
-  bookLinks = [ ...(new Set(allBookLinks)) ];
-  scrapedBooks = [];
-  notFoundScrapedBooks = [];
-  completedScrapeTasks = 0;
-
-  runningScrapeTasks = 0;
-
-  console.log('');
-
-  scrapeBooksTimer = Timer.start();
-  for(let i = 0; i < bookLinks.length; ++i) {
-    let currBookLink: string;
-    // console.log(runningScrapeTasks);
-    while(runningScrapeTasks >= MAX_CONCURRENT_PAGES) {
-      await sleep(10);
-    }
-    currBookLink = bookLinks[i];
-    runningScrapeTasks++;
-    (async () => {
-      let scrapedBook: ScrapedBook;
-      scrapedBook = await getPlaintextLink(browser, currBookLink);
-      if(scrapedBook.plaintextUrl === undefined) {
-        notFoundScrapedBooks.push(scrapedBook);
-      } else {
-        scrapedBooks.push(scrapedBook);
-      }
-      completedScrapeTasks++;
-      if((completedScrapeTasks % 10) === 0) {
-        process.stdout.write('.');
-      }
-      runningScrapeTasks--;
-    })();
-  }
-  while(runningScrapeTasks > 0) {
-    await sleep(10);
-  }
-
-  scrapedBooksMs = scrapeBooksTimer.stop();
-
-  console.log('');
-
-  console.log(`scraped ${scrapedBooks.length.toLocaleString()} ebooks in ${getIntuitiveTimeString(scrapedBooksMs)}`);
-
-  await mkdirIfNotExistRecursive(SCRAPED_EBOOKS_DIR_PATH);
-  currentDateString = getCurrentDateString();
-  scrapedEBooksFileName = `${currentDateString}_${SCRAPED_EBOOKS_FILE_NAME}`;
-  scrapedEBooksNotFoundFileName = `${currentDateString}_${SCRAPED_EBOOKS_NOT_FOUND_FILE_NAME}`;
-  scrapedEBooksFilePath = [
-    SCRAPED_EBOOKS_DIR_PATH,
-    scrapedEBooksFileName,
-  ].join(path.sep);
-  scrapedEBooksNotFoundFilePath = [
-    SCRAPED_EBOOKS_DIR_PATH,
-    scrapedEBooksNotFoundFileName,
-  ].join(path.sep);
-  await writeFile(scrapedEBooksFilePath, JSON.stringify(scrapedBooks, null, 2));
-  await writeFile(scrapedEBooksNotFoundFilePath, JSON.stringify(notFoundScrapedBooks, null, 2));
-  // await writeFile(SCRAPED_EBOOKS_FILE_PATH, JSON.stringify(scrapedBooks, null, 2));
-  // await writeFile(SCRAPED_EBOOKS_NOT_FOUND_FILE_PATH, JSON.stringify(notFoundScrapedBooks, null, 2));
+  return bookListLinksMap;
 }
 
-async function getPlaintextLink(browser: puppeteer.Browser, bookLink: string): Promise<ScrapedBook> {
+async function getPlaintextLink(browser: puppeteer.Browser, bookLink: string, rank: number): Promise<ScrapedBook> {
   let page: puppeteer.Page, title: string, plainTextLink: string;
   page = await browser.newPage();
 
@@ -217,6 +312,7 @@ async function getPlaintextLink(browser: puppeteer.Browser, bookLink: string): P
     title,
     plaintextUrl: plainTextLink,
     pageUrl: bookLink,
+    rank,
   };
 }
 

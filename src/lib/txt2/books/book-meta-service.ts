@@ -6,11 +6,47 @@ import path from 'path';
 import { EBOOKS_DATA_DIR_PATH, SCRAPED_EBOOKS_DIR_PATH, SCRAPED_EBOOKS_FILE_NAME, TXT_EBOOKS_META_FILE_PATH } from '../../../constants';
 import { checkDir } from '../../../util/files';
 import { ScrapedBook } from '../../gutenberg-scrape/gutenberg-scrape';
+import { TOP_PAGES_ENUM, TOP_PAGES_FILE_PREFIX_MAP } from '../../gutenberg-scrape/scrape-constants';
 import { ScrapedBookWithFile } from './books-service';
 
-export async function loadScrapedBooksMeta(): Promise<ScrapedBookWithFile[]> {
+export async function getScrapedBooksMeta(): Promise<ScrapedBookWithFile[]> {
+  let bookMetaPaths: string[], visitedBookMap: Record<string, boolean>;
+  let scrapedBooksWithFiles: ScrapedBookWithFile[];
+  bookMetaPaths = await getScrapedBooksMetaPaths();
+  // loadScrapedBooksMeta(TOP_PAGES_ENUM.TOP_100);
+  // loadScrapedBookMeta(TOP_PAGES_ENUM.TOP_1000, TOP_LISTS_ENUM.LAST_1_DAYS);
+  console.log(bookMetaPaths);
+
+  visitedBookMap = {};
+  scrapedBooksWithFiles = [];
+
+  for(let i = 0; i < bookMetaPaths.length; ++i) {
+    let currBookMetaPath: string;
+    currBookMetaPath = bookMetaPaths[i];
+    await getScrapedBooksWithFileNames(currBookMetaPath);
+  }
+
+  return scrapedBooksWithFiles;
+
+  async function getScrapedBooksWithFileNames(bookMetaPath: string) {
+    let booksMeta: ScrapedBook[], metaFileData: Buffer;
+    metaFileData = await readFile(bookMetaPath);
+    booksMeta = JSON.parse(metaFileData.toString());
+    booksMeta.forEach(currBookMeta => {
+      let currBookMetaWithFile: ScrapedBookWithFile;
+      currBookMetaWithFile = getScrapedBookWithFileName(currBookMeta);
+      if(!visitedBookMap[currBookMetaWithFile.fileName]) {
+        scrapedBooksWithFiles.push(currBookMetaWithFile);
+        visitedBookMap[currBookMetaWithFile.fileName] = true;
+      }
+    });
+  }
+}
+
+async function getScrapedBooksMetaPaths(topPageType?: TOP_PAGES_ENUM): Promise<string[]> {
   let scrapedDirExists: boolean, scrapedMetaDirents: Dirent[];
-  let scrapedBookMetaPaths: string[], scrapedBooksMeta: ScrapedBookWithFile[];
+  let scrapedBookMetaPaths: string[];
+
   scrapedDirExists = await checkDir(SCRAPED_EBOOKS_DIR_PATH);
   if(!scrapedDirExists) {
     throw new Error(`Directory doesn't exist, expected: ${SCRAPED_EBOOKS_DIR_PATH}`);
@@ -19,46 +55,29 @@ export async function loadScrapedBooksMeta(): Promise<ScrapedBookWithFile[]> {
     withFileTypes: true,
   });
   scrapedBookMetaPaths = scrapedMetaDirents.reduce((acc, curr) => {
+    let scrapedBookMetaFilePath: string;
     if(
       curr.name.includes(SCRAPED_EBOOKS_FILE_NAME)
       && curr.isFile()
     ) {
-      acc.push([
+      scrapedBookMetaFilePath = [
         SCRAPED_EBOOKS_DIR_PATH,
         curr.name,
-      ].join(path.sep));
+      ].join(path.sep);
+      if(topPageType === undefined) {
+        acc.push(scrapedBookMetaFilePath);
+      } else if(curr.name.includes(TOP_PAGES_FILE_PREFIX_MAP[topPageType])) {
+        acc.push(scrapedBookMetaFilePath);
+      }
     }
     return acc;
   }, [] as string[]);
-
-  scrapedBooksMeta = [];
-
-  for(let i = 0; i < scrapedBookMetaPaths.length; ++i) {
-    let currScrapedBookMetaPath: string;
-    let currBooksMeta: ScrapedBook[], metaFileData: Buffer;
-    currScrapedBookMetaPath = scrapedBookMetaPaths[i];
-    metaFileData = await readFile(currScrapedBookMetaPath);
-    currBooksMeta = JSON.parse(metaFileData.toString());
-    console.log(`${currScrapedBookMetaPath}: ${currBooksMeta.length}`);
-    for(let k = 0; k < currBooksMeta.length; ++k) {
-      let currBookMeta: ScrapedBookWithFile;
-      let foundBooksMetaIdx: number;
-      currBookMeta = getScrapedBookWithFileName(currBooksMeta[k]);
-      foundBooksMetaIdx = scrapedBooksMeta.findIndex(scrapedBookMeta => {
-        return scrapedBookMeta.fileName === currBookMeta.fileName;
-      });
-      if(foundBooksMetaIdx === -1) {
-        scrapedBooksMeta.push(currBookMeta);
-      }
-    }
-  }
-  console.log(scrapedBooksMeta.length);
-  return scrapedBooksMeta;
+  return scrapedBookMetaPaths;
 }
 
 export async function getTxtBookMeta(): Promise<ScrapedBookWithFile[]> {
   let txtBookMeta: ScrapedBookWithFile[];
-  txtBookMeta = JSON.parse((await readFile(TXT_EBOOKS_META_FILE_PATH)).toString())
+  txtBookMeta = JSON.parse((await readFile(TXT_EBOOKS_META_FILE_PATH)).toString());
   return txtBookMeta;
 }
 

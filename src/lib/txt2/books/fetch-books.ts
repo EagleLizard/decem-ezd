@@ -1,8 +1,14 @@
 
 import { EBOOKS_DATA_DIR_PATH, TXT_EBOOKS_META_DIR_PATH, TXT_EBOOKS_META_FILE_PATH } from '../../../constants';
 import { checkFile, mkdirIfNotExistRecursive } from '../../../util/files';
-import { downloadBooks, DownloadBooksResult, MAX_CONCURRENT_DOWNLOADS, MAX_TOTAL_SOCKETS, ScrapedBookWithFile } from './books-service';
-import { loadScrapedBooksMeta } from './book-meta-service';
+import {
+  downloadBooks,
+  DownloadBooksResult,
+  MAX_CONCURRENT_DOWNLOADS,
+  MAX_TOTAL_SOCKETS,
+  ScrapedBookWithFile,
+} from './books-service';
+import { getScrapedBooksMeta } from './book-meta-service';
 import { zipShuffle } from '../../../util/shuffle';
 import { getIntuitiveTimeString } from '../../../util/print-util';
 import { writeFile, readFile } from 'fs/promises';
@@ -15,11 +21,12 @@ export async function fetchBooks() {
   console.log(`MAX_CONCURRENT_DOWNLOADS: ${MAX_CONCURRENT_DOWNLOADS}`);
   console.log(`MAX_TOTAL_SOCKETS: ${MAX_TOTAL_SOCKETS}`);
   await mkdirIfNotExistRecursive(EBOOKS_DATA_DIR_PATH);
-  scrapedBooks = await loadScrapedBooksMeta();
+  scrapedBooks = await getScrapedBooksMeta();
+  console.log(`scrapedBooks.length: ${scrapedBooks.length.toLocaleString()}`);
+
   scrapedBooks.sort((a, b) => {
     return a.fileName.localeCompare(b.fileName);
   });
-  // scrapedBooks = scrapedBooks.slice(0, Math.round(scrapedBooks.length / 2));
   scrapedBooks = zipShuffle(scrapedBooks);
   booksToDownload = [];
   for(let i = 0; i < scrapedBooks.length; ++i) {
@@ -29,6 +36,7 @@ export async function fetchBooks() {
     if(
       !fileExists
       // || (scrapedBook.fileName.startsWith('a-'))
+      // || (scrapedBook.fileName.startsWith('p'))
     ) {
       booksToDownload.push(scrapedBook);
     }

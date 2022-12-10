@@ -3,6 +3,8 @@ import path from 'path';
 import { mkdirSync, Stats, statSync } from 'fs';
 import { mkdir, stat } from 'fs/promises';
 
+import rimraf from 'rimraf';
+
 export async function checkDir(dirPath: string): Promise<boolean> {
   let stats: Stats;
   try {
@@ -98,4 +100,15 @@ export async function mkdirIfNotExistRecursive(dirPath: string) {
       await mkdir(currDirPath);
     }
   }
+}
+
+export function _rimraf(targetPath: string): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    rimraf(targetPath, (err) => {
+      if(err) {
+        return reject(err);
+      }
+      resolve();
+    });
+  });
 }
