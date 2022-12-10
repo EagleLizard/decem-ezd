@@ -157,7 +157,10 @@ function getPlaintextLinkMemo() {
     } else {
       scrapedBook = scrapedBookCache[bookLink];
     }
-    return scrapedBook;
+    return {
+      ...scrapedBook,
+      rank,
+    };
   };
 }
 
