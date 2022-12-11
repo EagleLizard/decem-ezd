@@ -12,9 +12,13 @@ import { Timer } from '../../../util/timer';
 import { getTxtBookMeta } from '../books/book-meta-service';
 import { ScrapedBookWithFile } from '../books/books-service';
 import { readFileStream } from './read-file-stream';
-import { stripGutenbergBook, StripGutenbergError } from './strip-gutenberg';
+import { stripGutenbergBook, StripGutenbergError, StripGutenbergOpts } from './strip-gutenberg';
 
 const DELIM_START_TAG_VAL = '<!--a1f55f5400';
+
+type StripBookResult = {
+  lineCount: number;
+};
 
 export async function parseBooksMain() {
   let booksMeta: ScrapedBookWithFile[];
@@ -71,7 +75,7 @@ async function stripParse(books: ScrapedBookWithFile[]) {
   console.log('stripGutenbergBooks_');
   console.log('');
   stripTimer = Timer.start();
-  await stripGutenbergBooks(books, {
+  await stripBooks(books, {
     doneCb,
   });
   stripMs = stripTimer.stop();
@@ -81,8 +85,9 @@ async function stripParse(books: ScrapedBookWithFile[]) {
   console.log(`Stripped headers from ${parsedCount.toLocaleString()} books in ${getIntuitiveTimeString(stripMs)}`);
 }
 
-async function stripGutenbergBooks(books: ScrapedBookWithFile[], opts: {
-  doneCb: (err?: StripGutenbergError, book?: ScrapedBookWithFile) => void,
+async function stripBooks(books: ScrapedBookWithFile[], opts: {
+  // doneCb: (err?: StripGutenbergError, book?: ScrapedBookWithFile) => void,
+  doneCb: StripGutenbergOpts['doneCb'],
 }) {
   let totalLineCount: number;
 
@@ -92,6 +97,7 @@ async function stripGutenbergBooks(books: ScrapedBookWithFile[], opts: {
     let lineCount: number;
     let destFileName: string, destFilePath: string;
     let ws: WriteStream, hasStripErr: boolean;
+    let wsReadyPromise: Promise<void>, wsFinishPromise: Promise<void>;
 
     currBook = books[i];
     lineCount = 0;
@@ -105,15 +111,28 @@ async function stripGutenbergBooks(books: ScrapedBookWithFile[], opts: {
 
     ws = createWriteStream(destFilePath);
 
-    await new Promise<void>((resolve, reject) => {
+    wsReadyPromise = new Promise<void>((resolve, reject) => {
+      const wsReadyErrCb = (err: Error) => {
+        console.error('error when opening writestream');
+        reject(err);
+      };
       ws.once('ready', () => {
+        ws.removeListener('error', wsReadyErrCb);
         resolve();
       });
-      ws.once('error', err => {
-        console.error('error when opening writestream');
-        console.error(err);
+      ws.once('error', wsReadyErrCb);
+    });
+
+    wsFinishPromise = new Promise<void>((resolve, reject) => {
+      const wsCloseErrCb = (err: Error) => {
+        console.error('error when writing to writestream');
         reject(err);
+      };
+      ws.once('finish', () => {
+        ws.removeListener('error', wsCloseErrCb);
+        resolve();
       });
+      ws.on('error', wsCloseErrCb);
     });
 
     const lineCb = (line: string) => {
@@ -131,19 +150,15 @@ async function stripGutenbergBooks(books: ScrapedBookWithFile[], opts: {
       opts.doneCb(err, book);
     };
 
+    await wsReadyPromise;
+
     await stripGutenbergBook(currBook, {
       doneCb,
       lineCb,
     });
-
-    const wsClosePromise = new Promise<void>((resolve) => {
-      ws.once('finish', () => {
-        resolve();
-      });
-    });
     ws.close();
 
-    await wsClosePromise;
+    await wsFinishPromise;
 
     if(hasStripErr) {
       /*

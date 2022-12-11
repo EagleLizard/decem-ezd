@@ -14,15 +14,17 @@ export type StripGutenbergError = NodeJS.ErrnoException & {
   missingEndTags: boolean;
 };
 
+export type StripGutenbergOpts = {
+  doneCb: (
+    err: StripGutenbergError,
+    book: ScrapedBookWithFile,
+  ) => void;
+  lineCb: (line: string) => void;
+};
+
 export async function stripGutenbergBook(
   book: ScrapedBookWithFile,
-  opts: {
-    doneCb: (
-      err: StripGutenbergError,
-      book: ScrapedBookWithFile,
-    ) => void;
-    lineCb: (line: string) => void;
-  }
+  opts: StripGutenbergOpts,
 ) {
   let startTagParsed: boolean, endTagParsed: boolean;
   let parseStartTag: boolean;
