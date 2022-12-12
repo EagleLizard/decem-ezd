@@ -17,6 +17,7 @@ import { stripGutenbergBook, StripGutenbergError, StripGutenbergOpts } from './s
 const DELIM_START_TAG_VAL = '<!--a1f55f5400';
 
 type StripBookResult = {
+  destFilePath: string;
   lineCount: number;
 };
 
@@ -94,54 +95,11 @@ async function stripBooks(books: ScrapedBookWithFile[], opts: {
   totalLineCount = 0;
   for(let i = 0; i < books.length; ++i) {
     let currBook: ScrapedBookWithFile;
-    let lineCount: number;
-    let destFileName: string, destFilePath: string;
-    let ws: WriteStream, hasStripErr: boolean;
-    let wsReadyPromise: Promise<void>, wsFinishPromise: Promise<void>;
+    let hasStripErr: boolean;
+    let stripBookResult: StripBookResult;
 
     currBook = books[i];
-    lineCount = 0;
     hasStripErr = false;
-
-    destFileName = `${currBook.fileName}.txt`;
-    destFilePath = [
-      STRIPPED_EBOOKS_DIR_PATH,
-      destFileName,
-    ].join(path.sep);
-
-    ws = createWriteStream(destFilePath);
-
-    wsReadyPromise = new Promise<void>((resolve, reject) => {
-      const wsReadyErrCb = (err: Error) => {
-        console.error('error when opening writestream');
-        reject(err);
-      };
-      ws.once('ready', () => {
-        ws.removeListener('error', wsReadyErrCb);
-        resolve();
-      });
-      ws.once('error', wsReadyErrCb);
-    });
-
-    wsFinishPromise = new Promise<void>((resolve, reject) => {
-      const wsCloseErrCb = (err: Error) => {
-        console.error('error when writing to writestream');
-        reject(err);
-      };
-      ws.once('finish', () => {
-        ws.removeListener('error', wsCloseErrCb);
-        resolve();
-      });
-      ws.on('error', wsCloseErrCb);
-    });
-
-    const lineCb = (line: string) => {
-      if(lineCount !== 0) {
-        ws.write('\n');
-      }
-      ws.write(`${line}`);
-      lineCount++;
-    };
 
     const doneCb = (err: StripGutenbergError, book: ScrapedBookWithFile) => {
       if(err) {
@@ -150,15 +108,9 @@ async function stripBooks(books: ScrapedBookWithFile[], opts: {
       opts.doneCb(err, book);
     };
 
-    await wsReadyPromise;
-
-    await stripGutenbergBook(currBook, {
+    stripBookResult = await stripBook(currBook, {
       doneCb,
-      lineCb,
     });
-    ws.close();
-
-    await wsFinishPromise;
 
     if(hasStripErr) {
       /*
@@ -166,14 +118,84 @@ async function stripBooks(books: ScrapedBookWithFile[], opts: {
           We can only check after finishing streaming, because a file may have
           parsable start tags but not have parsable end tags
       */
-      await _rimraf(destFilePath);
+      await _rimraf(stripBookResult.destFilePath);
     } else {
-      totalLineCount = totalLineCount + lineCount;
+      totalLineCount = totalLineCount + stripBookResult.lineCount;
     }
 
   }
   console.log('');
   console.log(`total lines: ${totalLineCount.toLocaleString()}`);
+}
+
+async function stripBook(book: ScrapedBookWithFile, opts: {
+  doneCb: StripGutenbergOpts['doneCb'],
+}): Promise<StripBookResult> {
+  let destFileName: string, destFilePath: string;
+  let ws: WriteStream, wsFinishPromise: Promise<void>;
+  let lineCount: number;
+  let result: StripBookResult;
+
+  lineCount = 0;
+  destFileName = `${book.fileName}.txt`;
+  destFilePath = [
+    STRIPPED_EBOOKS_DIR_PATH,
+    destFileName,
+  ].join(path.sep);
+
+  ws = await initWs(destFilePath);
+  wsFinishPromise = getWsFinishPromise(ws);
+
+  const lineCb = (line: string) => {
+    if(lineCount !== 0) {
+      ws.write('\n');
+    }
+    ws.write(`${line}`);
+    lineCount++;
+  };
+
+  await stripGutenbergBook(book, {
+    lineCb,
+    doneCb: opts.doneCb,
+  });
+  ws.close();
+  await wsFinishPromise;
+
+  result = {
+    destFilePath,
+    lineCount,
+  };
+  return result;
+}
+
+async function initWs(_filePath: string): Promise<WriteStream> {
+  let _ws: WriteStream;
+  _ws = createWriteStream(_filePath);
+  await new Promise<void>((resolve, reject) => {
+    const wsReadyErrCb = (err: Error) => {
+      console.error('error when opening writestream');
+      reject(err);
+    };
+    _ws.once('ready', () => {
+      _ws.removeListener('error', wsReadyErrCb);
+      resolve();
+    });
+    _ws.once('error', wsReadyErrCb);
+  });
+  return _ws;
+}
+function getWsFinishPromise(_ws: WriteStream): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    const wsCloseErrCb = (err: Error) => {
+      console.error('error when writing to writestream');
+      reject(err);
+    };
+    _ws.once('finish', () => {
+      _ws.removeListener('error', wsCloseErrCb);
+      resolve();
+    });
+    _ws.on('error', wsCloseErrCb);
+  });
 }
 
 async function countParse(booksToParse: ScrapedBookWithFile[]) {
