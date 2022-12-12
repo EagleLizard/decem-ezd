@@ -6,11 +6,13 @@ import { parseBooksMain } from './parse-books/parse-books';
 enum TXT2_ARGS {
   SCRAPE = 'SCRAPE',
   STRIP = 'STRIP',
+  FETCH = 'FETCH',
 }
 
 const TXT2_ARG_MAP: Record<TXT2_ARGS, string> = {
   [TXT2_ARGS.SCRAPE]: 'scrape',
   [TXT2_ARGS.STRIP]: 'strip',
+  [TXT2_ARGS.FETCH]: 'fetch',
 };
 
 export async function txt2Main(argv: string[]) {
@@ -27,8 +29,20 @@ export async function txt2Main(argv: string[]) {
     case TXT2_ARG_MAP.STRIP:
       await parseBooksMain();
       break;
-    default:
+    case TXT2_ARG_MAP.FETCH:
       await fetchBooks();
+      break;
+    default:
+      handleDefaultArg(cmdArg);
+  }
+}
+
+function handleDefaultArg(cmdArg: string) {
+  cmdArg = cmdArg ?? '';
+  if(cmdArg.trim().length === 0) {
+    console.log('Empty command provided.');
+  } else {
+    console.log(`Command not supported: ${cmdArg}`);
   }
 }
 
