@@ -147,10 +147,10 @@ async function stripBook(book: ScrapedBookWithFile, opts: {
   wsFinishPromise = getWsFinishPromise(ws);
 
   const lineCb = (line: string) => {
-    if(lineCount !== 0) {
-      ws.write('\n');
-    }
-    ws.write(`${line}`);
+    // if(lineCount !== 0) {
+    //   ws.write('\n');
+    // }
+    ws.write(`${line}\n`);
     lineCount++;
   };
 
@@ -242,7 +242,8 @@ async function parseBooksSync(
     let currBook: ScrapedBookWithFile, currBookPath: string;
     let lineCount: number;
     currBook = books[i];
-    currBookPath = await getBookPath(currBook);
+    // currBookPath = await getBookPath(currBook);
+    currBookPath = currBook.filePath;
     lineCount = 0;
     const lineCb = (line: string) => {
       lineCount++;

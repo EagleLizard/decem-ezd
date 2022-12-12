@@ -2,6 +2,7 @@
 import { gutenbergScrapeMain } from '../gutenberg-scrape/gutenberg-scrape';
 import { fetchBooks } from './books/fetch-books';
 import { stripBooksMain } from './parse-books/strip-books';
+import { parseBooksMain } from './parse-books/parse-books';
 
 enum TXT2_ARGS {
   SCRAPE = 'SCRAPE',
@@ -35,6 +36,7 @@ export async function txt2Main(argv: string[]) {
       await fetchBooks();
       break;
     case TXT2_ARG_MAP.PARSE:
+      await parseBooksMain();
       break;
     default:
       handleDefaultArg(cmdArg);
