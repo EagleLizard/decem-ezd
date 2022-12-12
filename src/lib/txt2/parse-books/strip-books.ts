@@ -21,7 +21,7 @@ type StripBookResult = {
   lineCount: number;
 };
 
-export async function parseBooksMain() {
+export async function stripBooksMain() {
   let booksMeta: ScrapedBookWithFile[];
   let booksToParse: ScrapedBookWithFile[];
 

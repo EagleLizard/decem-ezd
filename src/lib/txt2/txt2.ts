@@ -1,18 +1,20 @@
 
 import { gutenbergScrapeMain } from '../gutenberg-scrape/gutenberg-scrape';
 import { fetchBooks } from './books/fetch-books';
-import { parseBooksMain } from './parse-books/parse-books';
+import { stripBooksMain } from './parse-books/strip-books';
 
 enum TXT2_ARGS {
   SCRAPE = 'SCRAPE',
   STRIP = 'STRIP',
   FETCH = 'FETCH',
+  PARSE = 'PARSE',
 }
 
 const TXT2_ARG_MAP: Record<TXT2_ARGS, string> = {
   [TXT2_ARGS.SCRAPE]: 'scrape',
   [TXT2_ARGS.STRIP]: 'strip',
   [TXT2_ARGS.FETCH]: 'fetch',
+  [TXT2_ARGS.PARSE]: 'parse',
 };
 
 export async function txt2Main(argv: string[]) {
@@ -27,10 +29,12 @@ export async function txt2Main(argv: string[]) {
       await gutenbergScrapeMain();
       break;
     case TXT2_ARG_MAP.STRIP:
-      await parseBooksMain();
+      await stripBooksMain();
       break;
     case TXT2_ARG_MAP.FETCH:
       await fetchBooks();
+      break;
+    case TXT2_ARG_MAP.PARSE:
       break;
     default:
       handleDefaultArg(cmdArg);
