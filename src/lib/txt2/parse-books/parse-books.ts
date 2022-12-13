@@ -10,9 +10,15 @@ import { getTxtBookMeta } from '../books/book-meta-service';
 import { ScrapedBookWithFile } from '../books/books-service';
 import { readFileStream } from './read-file-stream';
 
-type CountParseResult = {
-  lineCount: number;
-}
+/*
+  process.stdout.write('➤');
+  process.stdout.write('△');
+  process.stdout.write('❯');
+  process.stdout.write('➣');
+  process.stdout.write('➢');
+  process.stdout.write('▁');
+  process.stdout.write('▂');
+*/
 
 export async function parseBooksMain() {
   console.log('!~ parse ~!');
@@ -25,8 +31,11 @@ async function countParseBooksHandler() {
   txtBooksMeta = await getTxtBookMeta();
   scrapedBooks = txtBooksMeta.filter(bookMeta => {
     return (
-      bookMeta.fileName.includes('the-art-of-war-by-active-6th-century-bc-sunzi')
-      // || bookMeta.fileName.startsWith('p')
+      // bookMeta.fileName.includes('the-art-of-war-by-active-6th-century-bc-sunzi')
+      // bookMeta.fileName.startsWith('p')
+      // bookMeta.fileName.startsWith('a')
+      // bookMeta.fileName.startsWith('n')
+      bookMeta.fileName.startsWith('t')
       || true
     );
   });
@@ -36,7 +45,7 @@ async function countParseBooksHandler() {
 
 async function parseBooksSync(booksToParse: ScrapedBookWithFile[]) {
   let books: ScrapedBookWithFile[], baseDir: string;
-  let doneCount: number, totalLineCount: number, totalCharCount: number;
+  let doneCount: number, totalLineCount: number;
   let donePrintMod: number;
   let parseTimer: Timer, parseMs: number;
 
@@ -46,7 +55,6 @@ async function parseBooksSync(booksToParse: ScrapedBookWithFile[]) {
   const _getBookPath = getBookPathMemo(baseDir);
 
   totalLineCount = 0;
-  totalCharCount = 0;
   doneCount = 0;
   books = [];
 
@@ -67,18 +75,11 @@ async function parseBooksSync(booksToParse: ScrapedBookWithFile[]) {
 
   donePrintMod = Math.ceil(books.length / 70);
 
-  const doneCb = (res: CountParseDoneCbResult) => {
+  const doneCb = (res: LineCountParseDoneCbResult) => {
     doneCount++;
     totalLineCount += res.lineCount;
-    totalCharCount += res.charCount;
     if((doneCount % donePrintMod) === 0) {
       process.stdout.write('➤');
-      // process.stdout.write('△');
-      // process.stdout.write('❯');
-      // process.stdout.write('➣');
-      // process.stdout.write('➢');
-      // process.stdout.write('▁');
-      // process.stdout.write('▂');
     }
   };
 
@@ -87,7 +88,7 @@ async function parseBooksSync(booksToParse: ScrapedBookWithFile[]) {
   for(let i = 0; i < books.length; ++i) {
     let currBook: ScrapedBookWithFile;
     currBook = books[i];
-    await countParse({
+    await lineCountParse({
       bookDir: baseDir,
       book: currBook,
       doneCb,
@@ -98,26 +99,24 @@ async function parseBooksSync(booksToParse: ScrapedBookWithFile[]) {
 
   console.log('');
   console.log(`parsed ${doneCount.toLocaleString()} books in ${getIntuitiveTimeString(parseMs)}`);
-  console.log(`totalChars: ${totalCharCount.toLocaleString()}`);
   console.log(`totalLines: ${totalLineCount.toLocaleString()}`);
 }
 
-type CountParseDoneCbResult = {
+type LineCountParseDoneCbResult = {
   book: ScrapedBookWithFile;
   lineCount: number;
-  charCount: number;
   bookFilePath: string;
 };
 
-type CountParseOpts = {
+type LineCountParseOpts = {
   bookDir: string;
   book: ScrapedBookWithFile;
-  doneCb: (result: CountParseDoneCbResult) => void;
+  doneCb: (result: LineCountParseDoneCbResult) => void;
 }
 
-async function countParse(opts: CountParseOpts) {
+async function lineCountParse(opts: LineCountParseOpts) {
   let fileName: string, filePath: string;
-  let lineCount: number, charCount: number;
+  let lineCount: number;
 
   fileName = `${opts.book.fileName}.txt`;
   filePath = [
@@ -126,15 +125,9 @@ async function countParse(opts: CountParseOpts) {
   ].join(path.sep);
 
   lineCount = 0;
-  charCount = 0;
 
   const lineCb = (line: string) => {
     lineCount++;
-    // for(let i = 0; i < line.length; ++i) {
-    //   if((/[^\s]/gi).test(line[i])) {
-    //     charCount++;
-    //   }
-    // }
   };
 
   await readFileStream(filePath, {
@@ -145,7 +138,6 @@ async function countParse(opts: CountParseOpts) {
     book: opts.book,
     bookFilePath: filePath,
     lineCount,
-    charCount,
   });
 }
 
