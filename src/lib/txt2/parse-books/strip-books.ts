@@ -41,51 +41,41 @@ export async function stripBooksMain() {
 }
 
 async function stripParse(books: ScrapedBookWithFile[]) {
+  let stripTimer: Timer, stripMs: number;
+  let stripBooksResult: StripBooksResult;
+
+  await mkdirIfNotExistRecursive(STRIPPED_EBOOKS_DIR_PATH);
+
+  console.log('stripGutenbergBooks_');
+  console.log('');
+  stripTimer = Timer.start();
+  stripBooksResult = await stripBooks(books);
+  stripMs = stripTimer.stop();
+  console.log('');
+  console.log(`total lines: ${stripBooksResult.totalLineCount.toLocaleString()}`);
+  console.log(`num books failed to strip: ${stripBooksResult.errCount.toLocaleString()}`);
+  console.log(`failed with small print: ${stripBooksResult.smallPrintCount.toLocaleString()}`);
+  console.log(`Stripped headers from ${stripBooksResult.parsedCount.toLocaleString()} books in ${getIntuitiveTimeString(stripMs)}`);
+}
+
+type StripBooksResult = {
+  errCount: number;
+  smallPrintCount: number;
+  parsedCount: number;
+  totalLineCount: number;
+};
+
+async function stripBooks(books: ScrapedBookWithFile[]): Promise<StripBooksResult> {
+  let totalLineCount: number;
   let doneCount: number, donePrintMod: number;
   let parsedCount: number, errCount: number, smallPrintCount: number;
-  let stripTimer: Timer, stripMs: number;
+  let stripBooksResult: StripBooksResult;
 
   doneCount = 0;
   parsedCount = 0;
   errCount = 0;
   smallPrintCount = 0;
   donePrintMod = Math.ceil(books.length / 70);
-
-  await mkdirIfNotExistRecursive(STRIPPED_EBOOKS_DIR_PATH);
-
-  const doneCb = (err: StripGutenbergError, book: ScrapedBookWithFile) => {
-    doneCount++;
-    if(err) {
-      errCount++;
-      if(err.hasSmallPrint) {
-        smallPrintCount++;
-      }
-    } else {
-      parsedCount++;
-    }
-    if((doneCount % donePrintMod) === 0) {
-      process.stdout.write('x');
-    }
-  };
-
-  console.log('stripGutenbergBooks_');
-  console.log('');
-  stripTimer = Timer.start();
-  await stripBooks(books, {
-    doneCb,
-  });
-  stripMs = stripTimer.stop();
-  console.log('');
-  console.log(`num books failed to strip: ${errCount.toLocaleString()}`);
-  console.log(`failed with small print: ${smallPrintCount.toLocaleString()}`);
-  console.log(`Stripped headers from ${parsedCount.toLocaleString()} books in ${getIntuitiveTimeString(stripMs)}`);
-}
-
-async function stripBooks(books: ScrapedBookWithFile[], opts: {
-  // doneCb: (err?: StripGutenbergError, book?: ScrapedBookWithFile) => void,
-  doneCb: StripGutenbergOpts['doneCb'],
-}) {
-  let totalLineCount: number;
 
   totalLineCount = 0;
   for(let i = 0; i < books.length; ++i) {
@@ -97,13 +87,6 @@ async function stripBooks(books: ScrapedBookWithFile[], opts: {
     currBook = books[i];
     hasStripErr = false;
 
-    const doneCb = (err: StripGutenbergError, book: ScrapedBookWithFile) => {
-      if(err) {
-        hasStripErr = true;
-      }
-      opts.doneCb(err, book);
-    };
-
     destFileName = `${currBook.fileName}.txt`;
     destFilePath = [
       STRIPPED_EBOOKS_DIR_PATH,
@@ -111,6 +94,22 @@ async function stripBooks(books: ScrapedBookWithFile[], opts: {
     ].join(path.sep);
 
     strippedBookExists = await checkFile(destFilePath);
+
+    const doneCb = (err: StripGutenbergError, book: ScrapedBookWithFile) => {
+      doneCount++;
+      if(err) {
+        errCount++;
+        hasStripErr = true;
+        if(err.hasSmallPrint) {
+          smallPrintCount++;
+        }
+      } else if(!strippedBookExists) {
+        parsedCount++;
+      }
+      if((doneCount % donePrintMod) === 0) {
+        process.stdout.write('x');
+      }
+    };
 
     if(strippedBookExists) {
       stripBookResult = {
@@ -124,7 +123,6 @@ async function stripBooks(books: ScrapedBookWithFile[], opts: {
       });
     }
 
-
     if(hasStripErr) {
       /*
         Cleanup (delete) files if there was a strip err.
@@ -137,8 +135,15 @@ async function stripBooks(books: ScrapedBookWithFile[], opts: {
     }
 
   }
-  console.log('');
-  console.log(`total lines: ${totalLineCount.toLocaleString()}`);
+
+  stripBooksResult = {
+    errCount,
+    smallPrintCount,
+    totalLineCount,
+    parsedCount,
+  };
+
+  return stripBooksResult;
 }
 
 type StripBookResult = {
