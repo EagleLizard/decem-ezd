@@ -6,7 +6,7 @@ import path from 'path';
 import rimraf from 'rimraf';
 
 import { EBOOKS_DATA_DIR_PATH, STRIPPED_EBOOKS_DIR_PATH } from '../../../constants';
-import { mkdirIfNotExistRecursive, _rimraf } from '../../../util/files';
+import { checkFile, mkdirIfNotExistRecursive, _rimraf } from '../../../util/files';
 import { getIntuitiveTimeString } from '../../../util/print-util';
 import { Timer } from '../../../util/timer';
 import { getTxtBookMeta } from '../books/book-meta-service';
@@ -15,11 +15,6 @@ import { readFileStream } from './read-file-stream';
 import { stripGutenbergBook, StripGutenbergError, StripGutenbergOpts } from './strip-gutenberg';
 
 const DELIM_START_TAG_VAL = '<!--a1f55f5400';
-
-type StripBookResult = {
-  destFilePath: string;
-  lineCount: number;
-};
 
 export async function stripBooksMain() {
   let booksMeta: ScrapedBookWithFile[];
@@ -95,8 +90,9 @@ async function stripBooks(books: ScrapedBookWithFile[], opts: {
   totalLineCount = 0;
   for(let i = 0; i < books.length; ++i) {
     let currBook: ScrapedBookWithFile;
-    let hasStripErr: boolean;
+    let hasStripErr: boolean, strippedBookExists: boolean;
     let stripBookResult: StripBookResult;
+    let destFileName: string, destFilePath: string;
 
     currBook = books[i];
     hasStripErr = false;
@@ -108,9 +104,26 @@ async function stripBooks(books: ScrapedBookWithFile[], opts: {
       opts.doneCb(err, book);
     };
 
-    stripBookResult = await stripBook(currBook, {
-      doneCb,
-    });
+    destFileName = `${currBook.fileName}.txt`;
+    destFilePath = [
+      STRIPPED_EBOOKS_DIR_PATH,
+      destFileName,
+    ].join(path.sep);
+
+    strippedBookExists = await checkFile(destFilePath);
+
+    if(strippedBookExists) {
+      stripBookResult = {
+        lineCount: 0,
+      };
+      doneCb(undefined, currBook);
+    } else {
+      stripBookResult = await stripBook(currBook, {
+        doneCb,
+        destFilePath,
+      });
+    }
+
 
     if(hasStripErr) {
       /*
@@ -118,7 +131,7 @@ async function stripBooks(books: ScrapedBookWithFile[], opts: {
           We can only check after finishing streaming, because a file may have
           parsable start tags but not have parsable end tags
       */
-      await _rimraf(stripBookResult.destFilePath);
+      await _rimraf(destFilePath);
     } else {
       totalLineCount = totalLineCount + stripBookResult.lineCount;
     }
@@ -128,22 +141,21 @@ async function stripBooks(books: ScrapedBookWithFile[], opts: {
   console.log(`total lines: ${totalLineCount.toLocaleString()}`);
 }
 
+type StripBookResult = {
+  lineCount: number;
+};
+
 async function stripBook(book: ScrapedBookWithFile, opts: {
   doneCb: StripGutenbergOpts['doneCb'],
+  destFilePath: string,
 }): Promise<StripBookResult> {
-  let destFileName: string, destFilePath: string;
   let ws: WriteStream, wsFinishPromise: Promise<void>;
   let lineCount: number;
   let result: StripBookResult;
 
   lineCount = 0;
-  destFileName = `${book.fileName}.txt`;
-  destFilePath = [
-    STRIPPED_EBOOKS_DIR_PATH,
-    destFileName,
-  ].join(path.sep);
 
-  ws = await initWs(destFilePath);
+  ws = await initWs(opts.destFilePath);
   wsFinishPromise = getWsFinishPromise(ws);
 
   const lineCb = (line: string) => {
@@ -162,7 +174,6 @@ async function stripBook(book: ScrapedBookWithFile, opts: {
   await wsFinishPromise;
 
   result = {
-    destFilePath,
     lineCount,
   };
   return result;
