@@ -114,8 +114,27 @@ async function scrapeTopPage(browser: puppeteer.Browser, topPageType: TOP_PAGES_
       runningScrapeTasks++;
       (async () => {
         let scrapedBook: ScrapedBook;
-        scrapedBook = await _getPlaintextLink(browser, currBookLink, currBookRank);
-        if(scrapedBook.plaintextUrl === undefined) {
+        let hasWaitForError: boolean;
+        hasWaitForError = false;
+        try {
+          scrapedBook = await _getPlaintextLink(browser, currBookLink, currBookRank);
+        } catch(e) {
+          if(e instanceof puppeteer.TimeoutError) {
+            hasWaitForError = true;
+            scrapedBook = {
+              plaintextUrl: undefined,
+              title: undefined,
+              rank: currBookRank,
+              pageUrl: currBookLink,
+            };
+          } else {
+            throw e;
+          }
+        }
+        if(
+          (scrapedBook.plaintextUrl === undefined)
+          || hasWaitForError
+        ) {
           notFoundScrapedBooks.push(scrapedBook);
         } else {
           scrapedBooks.push(scrapedBook);
@@ -123,6 +142,9 @@ async function scrapeTopPage(browser: puppeteer.Browser, topPageType: TOP_PAGES_
         completedScrapeTasks++;
         if((completedScrapeTasks % 10) === 0) {
           process.stdout.write('.');
+        }
+        if(hasWaitForError) {
+          process.stdout.write('x');
         }
         runningScrapeTasks--;
       })();
