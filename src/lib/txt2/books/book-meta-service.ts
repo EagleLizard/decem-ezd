@@ -5,9 +5,8 @@ import path from 'path';
 
 import { EBOOKS_DATA_DIR_PATH, SCRAPED_EBOOKS_DIR_PATH, SCRAPED_EBOOKS_FILE_NAME, TXT_EBOOKS_META_FILE_PATH } from '../../../constants';
 import { checkDir } from '../../../util/files';
-import { ScrapedBook } from '../../gutenberg-scrape/gutenberg-scrape';
 import { TOP_PAGES_ENUM, TOP_PAGES_FILE_PREFIX_MAP } from '../../gutenberg-scrape/scrape-constants';
-import { ScrapedBookWithFile } from './books-service';
+import { ScrapedBook, ScrapedBookWithFile } from '../../../models/scraped-book';
 
 export async function getScrapedBooksMeta(): Promise<ScrapedBookWithFile[]> {
   let bookMetaPaths: string[], visitedBookMap: Record<string, boolean>;

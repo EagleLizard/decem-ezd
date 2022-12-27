@@ -9,8 +9,8 @@ import { EBOOKS_DATA_DIR_PATH, STRIPPED_EBOOKS_DIR_PATH } from '../../../constan
 import { getIntuitiveTimeString } from '../../../util/print-util';
 import { Timer } from '../../../util/timer';
 import { getTxtBookMeta } from '../books/book-meta-service';
-import { ScrapedBookWithFile } from '../books/books-service';
 import { readFileStream } from './read-file-stream';
+import { ScrapedBookWithFile } from '../../../models/scraped-book';
 
 /*
   process.stdout.write('➤');
@@ -48,6 +48,9 @@ async function countParseBooksHandler() {
       || true
     );
   });
+  // scrapedBooks = scrapedBooks.filter(scrapedBook => {
+  //   return scrapedBook.rank <= 500;
+  // });
 
   booksToParse = [];
 
@@ -184,6 +187,8 @@ async function charCountParse(opts: CharCountParseOpts) {
   let fileName: string, filePath: string;
   let charCount: number, lineCount: number;
 
+  let charCountMap: Record<string, number>;
+
   fileName = `${opts.book.fileName}.txt`;
   filePath = [
     opts.bookDir,
@@ -192,13 +197,23 @@ async function charCountParse(opts: CharCountParseOpts) {
 
   charCount = 0;
   lineCount = 0;
+  charCountMap = {};
 
   const countLineChars = (line: string) => {
+
+    // charCount += line.length;
+
     for(let i = 0; i < line.length; ++i) {
       let currChar: string;
       currChar = line[i];
+
+      charCount++;
+
       if((/[\S]/gi).test(currChar)) {
-        charCount++;
+        if(charCountMap[currChar] === undefined) {
+          charCountMap[currChar] = 0;
+        }
+        charCountMap[currChar]++;
       }
     }
   };

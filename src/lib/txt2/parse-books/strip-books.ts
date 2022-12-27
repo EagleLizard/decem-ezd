@@ -6,11 +6,11 @@ import path from 'path';
 import rimraf from 'rimraf';
 
 import { EBOOKS_DATA_DIR_PATH, STRIPPED_EBOOKS_DIR_PATH } from '../../../constants';
+import { ScrapedBookWithFile } from '../../../models/scraped-book';
 import { checkFile, mkdirIfNotExistRecursive, _rimraf } from '../../../util/files';
 import { getIntuitiveTimeString } from '../../../util/print-util';
 import { Timer } from '../../../util/timer';
 import { getTxtBookMeta } from '../books/book-meta-service';
-import { ScrapedBookWithFile } from '../books/books-service';
 import { readFileStream } from './read-file-stream';
 import { stripGutenbergBook, StripGutenbergError, StripGutenbergOpts } from './strip-gutenberg';
 

@@ -3,7 +3,7 @@
   Strips the project Gutenberg headers / footers
 */
 
-import { ScrapedBookWithFile } from '../books/books-service';
+import { ScrapedBookWithFile } from '../../../models/scraped-book';
 import { readFileStream } from './read-file-stream';
 
 const GUTENBERG_TAG_MARKER = '*';

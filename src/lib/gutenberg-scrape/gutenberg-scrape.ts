@@ -12,16 +12,10 @@ import { sleep } from '../../util/sleep';
 import { mkdirIfNotExistRecursive } from '../../util/files';
 import { getCurrentDateString } from '../../util/date-time';
 import { TOP_LISTS_ENUM, TOP_LISTS_FILE_PREFIX_MAP, TOP_LISTS_ID_MAP, TOP_LIST_ENUM_ARR, TOP_PAGES_ENUM, TOP_PAGES_FILE_PREFIX_MAP, TOP_PAGES_URL_MAP } from './scrape-constants';
+import { ScrapedBook } from '../../models/scraped-book';
 
 const NUM_CPUS = os.cpus().length;
 const MAX_CONCURRENT_PAGES = NUM_CPUS - 1;
-
-export type ScrapedBook = {
-  title: string;
-  plaintextUrl: string;
-  pageUrl: string;
-  rank: number;
-};
 
 type GetPuppeteerLaunchArgsParams = {
   viewportWidth: number;

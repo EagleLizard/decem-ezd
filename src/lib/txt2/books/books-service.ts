@@ -9,15 +9,10 @@ import _chunk from 'lodash.chunk';
 
 import { fetchRetry } from '../../../util/fetch-retry';
 import { Timer } from '../../../util/timer';
-import { ScrapedBook } from '../../gutenberg-scrape/gutenberg-scrape';
 import { isNumber } from '../../../util/validate-primitives';
+import { ScrapedBookWithFile } from '../../../models/scraped-book';
 
 const BOOK_DOWNLOAD_CHUNK_SIZE = 50;
-
-export type ScrapedBookWithFile = {
-  fileName: string;
-  filePath: string;
-} & ScrapedBook;
 
 export type DownloadBooksResult = {
   ms: number;

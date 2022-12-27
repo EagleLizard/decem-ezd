@@ -4,12 +4,12 @@ import { checkFile, mkdirIfNotExistRecursive } from '../../../util/files';
 import {
   downloadBooks,
   DownloadBooksResult,
-  ScrapedBookWithFile,
 } from './books-service';
 import { getScrapedBooksMeta } from './book-meta-service';
 import { zipShuffle } from '../../../util/shuffle';
 import { getIntuitiveTimeString } from '../../../util/print-util';
 import { writeFile, readFile } from 'fs/promises';
+import { ScrapedBookWithFile } from '../../../models/scraped-book';
 
 export async function fetchBooks() {
   let scrapedBooks: ScrapedBookWithFile[];
