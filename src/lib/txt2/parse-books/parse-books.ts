@@ -64,7 +64,6 @@ async function countParseBooksHandler() {
     }
     nextBook = {
       ...currBook,
-      filePath: foundBookPath,
     };
     booksToParse.push(nextBook);
   }

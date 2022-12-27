@@ -8,5 +8,4 @@ export type ScrapedBook = {
 
 export type ScrapedBookWithFile = {
   fileName: string;
-  filePath: string;
 } & ScrapedBook;

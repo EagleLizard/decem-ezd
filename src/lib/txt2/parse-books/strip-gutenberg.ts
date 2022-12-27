@@ -4,6 +4,7 @@
 */
 
 import { ScrapedBookWithFile } from '../../../models/scraped-book';
+import { getScrapedBookFilePath } from '../books/book-meta-service';
 import { readFileStream } from './read-file-stream';
 
 const GUTENBERG_TAG_MARKER = '*';
@@ -26,6 +27,7 @@ export async function stripGutenbergBook(
   book: ScrapedBookWithFile,
   opts: StripGutenbergOpts,
 ) {
+  let scrapedBookFilePath: string;
   let startTagParsed: boolean, endTagParsed: boolean;
   let parseStartTag: boolean;
   let hasSmallPrint: boolean;
@@ -79,7 +81,9 @@ export async function stripGutenbergBook(
     }
   };
 
-  await readFileStream(book.filePath, {
+  scrapedBookFilePath = getScrapedBookFilePath(book);
+
+  await readFileStream(scrapedBookFilePath, {
     lineCb,
   });
   hasErr = !startTagParsed || !endTagParsed || hasSmallPrint;

@@ -80,6 +80,15 @@ export async function getTxtBookMeta(): Promise<ScrapedBookWithFile[]> {
   return txtBookMeta;
 }
 
+export function getScrapedBookFilePath(scrapedBook: ScrapedBookWithFile): string {
+  let filePath: string;
+  filePath = [
+    EBOOKS_DATA_DIR_PATH,
+    `${scrapedBook.fileName}.txt`,
+  ].join(path.sep);
+  return filePath;
+}
+
 function getScrapedBookWithFileName(scrapedBook: ScrapedBook): ScrapedBookWithFile {
   let withFileName: ScrapedBookWithFile;
   let titleKebabCase: string;
@@ -87,10 +96,6 @@ function getScrapedBookWithFileName(scrapedBook: ScrapedBook): ScrapedBookWithFi
   withFileName = {
     ...scrapedBook,
     fileName: titleKebabCase,
-    filePath: [
-      EBOOKS_DATA_DIR_PATH,
-      `${titleKebabCase}.txt`,
-    ].join(path.sep)
   };
   return withFileName;
 }

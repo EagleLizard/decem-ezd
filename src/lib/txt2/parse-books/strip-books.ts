@@ -10,7 +10,7 @@ import { ScrapedBookWithFile } from '../../../models/scraped-book';
 import { checkFile, mkdirIfNotExistRecursive, _rimraf } from '../../../util/files';
 import { getIntuitiveTimeString } from '../../../util/print-util';
 import { Timer } from '../../../util/timer';
-import { getTxtBookMeta } from '../books/book-meta-service';
+import { getScrapedBookFilePath, getTxtBookMeta } from '../books/book-meta-service';
 import { readFileStream } from './read-file-stream';
 import { stripGutenbergBook, StripGutenbergError, StripGutenbergOpts } from './strip-gutenberg';
 
@@ -259,7 +259,7 @@ async function parseBooksSync(
     let lineCount: number;
     currBook = books[i];
     // currBookPath = await getBookPath(currBook);
-    currBookPath = currBook.filePath;
+    currBookPath = getScrapedBookFilePath(currBook);
     lineCount = 0;
     const lineCb = (line: string) => {
       lineCount++;

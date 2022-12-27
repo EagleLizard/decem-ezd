@@ -5,7 +5,7 @@ import {
   downloadBooks,
   DownloadBooksResult,
 } from './books-service';
-import { getScrapedBooksMeta } from './book-meta-service';
+import { getScrapedBookFilePath, getScrapedBooksMeta } from './book-meta-service';
 import { zipShuffle } from '../../../util/shuffle';
 import { getIntuitiveTimeString } from '../../../util/print-util';
 import { writeFile, readFile } from 'fs/promises';
@@ -28,8 +28,10 @@ export async function fetchBooks() {
   booksToDownload = [];
   for(let i = 0; i < scrapedBooks.length; ++i) {
     let scrapedBook: ScrapedBookWithFile, fileExists: boolean;
+    let scrapedBookFilePath: string;
     scrapedBook = scrapedBooks[i];
-    fileExists = await checkFile(scrapedBook.filePath);
+    scrapedBookFilePath = getScrapedBookFilePath(scrapedBook);
+    fileExists = await checkFile(scrapedBookFilePath);
     if(
       !fileExists
       // || (scrapedBook.fileName.startsWith('a-'))

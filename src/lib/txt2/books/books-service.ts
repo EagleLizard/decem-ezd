@@ -11,6 +11,7 @@ import { fetchRetry } from '../../../util/fetch-retry';
 import { Timer } from '../../../util/timer';
 import { isNumber } from '../../../util/validate-primitives';
 import { ScrapedBookWithFile } from '../../../models/scraped-book';
+import { getScrapedBookFilePath } from './book-meta-service';
 
 const BOOK_DOWNLOAD_CHUNK_SIZE = 50;
 
@@ -88,7 +89,7 @@ async function downloadBook(scrapedBook: ScrapedBookWithFile, httpsAgent?: https
   let filePath: string;
   let resp: Response, ws: WriteStream;
 
-  filePath = scrapedBook.filePath;
+  filePath = getScrapedBookFilePath(scrapedBook);
 
   const doRetry = (err: any) => {
     if(
